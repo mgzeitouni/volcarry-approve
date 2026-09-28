@@ -363,18 +363,26 @@ function drawHist(el,h){
 }
 
 function drawEquity(el,rows){
-  if(rows.length<2){
-    el.innerHTML=`<div class="empty" style="padding:16px 0 4px"><b>No curve yet</b>${rows.length?'One snapshot recorded.':'No snapshots recorded.'} The line starts once the daily check has run more than once.</div>`;
-    return;
-  }
-  const W=380,H=90,L=6,R=6,T=8,B=8, vals=rows.map(r=>+r.account_value);
-  const lo=Math.min(...vals)*0.98, hi=Math.max(...vals)*1.02;
-  const xs=i=>L+i*(W-L-R)/(rows.length-1), ys=v=>T+(hi-v)/((hi-lo)||1)*(H-T-B);
-  const d=rows.map((r,i)=>`${i?'L':'M'}${xs(i).toFixed(1)},${ys(+r.account_value).toFixed(1)}`).join('');
-  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Account value over time">
-    <path d="${d}L${xs(rows.length-1)},${H-B}L${L},${H-B}Z" fill="var(--accent-soft)"/>
-    <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
-    <circle cx="${xs(rows.length-1)}" cy="${ys(vals[vals.length-1])}" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/></svg>`;
+  if(!rows.length){ el.innerHTML='<div class="empty" style="padding:16px 0 4px"><b>No history yet</b>The curve starts with the first daily check.</div>'; return; }
+  const W=420,H=170,L=54,R=14,T=14,B=30, vals=rows.map(r=>+r.account_value);
+  const first=vals[0], last=vals[vals.length-1], d=last-first, pct=first?d/first*100:0;
+  let lo=Math.min(...vals), hi=Math.max(...vals);
+  if(hi-lo<1){ lo-=Math.max(5,lo*.05); hi+=Math.max(5,hi*.05); } else { const pad=(hi-lo)*.15; lo-=pad; hi+=pad; }
+  const n=rows.length, xs=i=> n>1 ? L+i*(W-L-R)/(n-1) : (L+W-R)/2, ys=v=>T+(hi-v)/(hi-lo)*(H-T-B);
+  const path=rows.map((r,i)=>`${i?'L':'M'}${xs(i).toFixed(1)},${ys(+r.account_value).toFixed(1)}`).join('');
+  const fmtD=s=>{const t=new Date(s+'T12:00:00');return t.toLocaleDateString('en-US',{month:'short',day:'numeric'});};
+  let g='';
+  const step=(hi-lo)/3;
+  for(let k=0;k<=3;k++){ const v=lo+k*step; g+=`<line x1="${L}" x2="${W-R}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--grid)"/>`
+    +`<text x="${L-8}" y="${ys(v)+4}" text-anchor="end" font-size="10.5" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${fmtUsd(v)}</text>`; }
+  const ticks=n<=6?rows.map((_,i)=>i):[0,Math.floor((n-1)/2),n-1];
+  ticks.forEach(i=>{ g+=`<text x="${xs(i)}" y="${H-B+18}" text-anchor="${i===0?'start':i===n-1?'end':'middle'}" font-size="10.5" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${fmtD(rows[i].d)}</text>`; });
+  const area = n>1 ? `<path d="${path}L${xs(n-1)},${H-B}L${xs(0)},${H-B}Z" fill="var(--accent-soft)"/>` : '';
+  const pts=rows.map((r,i)=>`<circle cx="${xs(i)}" cy="${ys(+r.account_value)}" r="${n>30?0:3}" fill="var(--accent)"><title>${fmtD(r.d)}: ${fmtUsd(+r.account_value)}</title></circle>`).join('');
+  el.innerHTML=`<div class="lg" style="margin:0 0 6px"><span><i class="sw" style="background:var(--accent)"></i> Account value, daily · since ${fmtD(rows[0].d)}: <b class="${d<0?'neg':d>0?'pos':''}" style="margin-left:4px">${d>=0?'+':''}${fmtUsd(d)} (${pct>=0?'+':''}${pct.toFixed(1)}%)</b></span></div>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Account value over time">${g}${area}
+    <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>${pts}
+    <circle cx="${xs(n-1)}" cy="${ys(last)}" r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/></svg>`;
 }
 
 /* ---------------- static sections, drawn immediately ---------------- */
@@ -452,7 +460,7 @@ function render(snap, storedAt){
     $('vWhy').textContent = !above?'QQQ is below its 10-month moving average.':'VIX is at or above 25.'; }
 
   $('acctVal').textContent = fmtUsd(acct);
-  $('acctNote').textContent = d.note || '';
+  $('acctNote').textContent = d.d ? `Cash ${fmtUsd(+d.cash||0)} · ${(S.status||'').replace('_',' ')} · last check ${d.d}` : '';
   drawEquity($('eqWrap'), days.filter(r=>r.account_value!=null));
 
   const pos=snap.positions||[];
