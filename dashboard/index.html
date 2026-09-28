@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<title>Volatility Carry Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --plane:#f4f6f9; --surface:#ffffff; --surface-2:#eef1f6;
+  --ink:#10131a; --ink-2:#545c6b; --muted:#858d9c;
+  --grid:#e4e8ef; --axis:#c2c9d4; --rule:rgba(16,19,26,.10);
+  --accent:#2a78d6; --accent-soft:rgba(42,120,214,.13);
+  --ma:#eb6834;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  --warn-ink:#8a5d00;
+  --good-bg:rgba(12,163,12,.10); --warn-bg:rgba(250,178,25,.16); --crit-bg:rgba(208,59,59,.10);
+  --shadow:0 1px 2px rgba(16,19,26,.05), 0 8px 24px -16px rgba(16,19,26,.25);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  color-scheme: dark;
+  --plane:#0c0e12; --surface:#14171d; --surface-2:#1b1f27;
+  --ink:#f2f4f8; --ink-2:#a8b0be; --muted:#79808e;
+  --grid:#232832; --axis:#333a46; --rule:rgba(242,244,248,.11);
+  --accent:#3987e5; --accent-soft:rgba(57,135,229,.18);
+  --ma:#d95926;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  --warn-ink:#fab219;
+  --good-bg:rgba(12,163,12,.16); --warn-bg:rgba(250,178,25,.16); --crit-bg:rgba(208,59,59,.18);
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+}}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --plane:#0c0e12; --surface:#14171d; --surface-2:#1b1f27;
+  --ink:#f2f4f8; --ink-2:#a8b0be; --muted:#79808e;
+  --grid:#232832; --axis:#333a46; --rule:rgba(242,244,248,.11);
+  --accent:#3987e5; --accent-soft:rgba(57,135,229,.18);
+  --ma:#d95926;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  --warn-ink:#fab219;
+  --good-bg:rgba(12,163,12,.16); --warn-bg:rgba(250,178,25,.16); --crit-bg:rgba(208,59,59,.18);
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--plane); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:14px; line-height:1.55; -webkit-font-smoothing:antialiased;}
+.wrap{max-width:1120px; margin:0 auto; padding-inline:16px; padding-block:24px 56px;}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums;}
+
+header.top{display:flex; flex-wrap:wrap; align-items:baseline; gap:10px 14px; margin-bottom:6px;}
+h1{font-size:23px; font-weight:700; letter-spacing:-.02em; margin:0; text-wrap:balance;}
+.pill{font-family:"IBM Plex Mono",monospace; font-size:11px; font-weight:500; letter-spacing:.04em;
+  padding:3px 8px; border-radius:4px; background:var(--surface-2); color:var(--ink-2); border:1px solid var(--rule);}
+.pill.live{background:var(--good-bg); color:var(--good); border-color:transparent;}
+.pill.planned{background:var(--warn-bg); color:var(--warn-ink); border-color:transparent;}
+.sub{color:var(--ink-2); margin:0 0 22px; max-width:66ch;}
+.stamp{margin-left:auto; font-size:11.5px; color:var(--muted);}
+
+/* connector state strip */
+.conn{display:flex; gap:10px; align-items:flex-start; padding:11px 14px; border-radius:8px;
+  background:var(--surface-2); border:1px solid var(--rule); margin-bottom:18px; font-size:12.5px; color:var(--ink-2);}
+.conn b{color:var(--ink); font-weight:600;}
+.conn .ic{flex:none; font-family:"IBM Plex Mono",monospace; font-weight:600;}
+
+.verdict{background:var(--surface); border:1px solid var(--rule); border-radius:10px;
+  box-shadow:var(--shadow); overflow:hidden; margin-bottom:22px;}
+.verdict-head{display:flex; align-items:center; gap:12px; padding:16px 18px; border-bottom:1px solid var(--rule); flex-wrap:wrap;}
+.dot{width:10px; height:10px; border-radius:50%; flex:none;}
+.verdict-title{font-weight:600; font-size:15px;}
+.verdict-why{color:var(--ink-2); font-size:13px; margin-left:auto; text-align:right;}
+.gates{display:grid; grid-template-columns:repeat(3,1fr);}
+.gate{padding:15px 18px 17px; border-right:1px solid var(--rule);}
+.gate:last-child{border-right:0;}
+.gate-h{display:flex; align-items:center; gap:7px; font-size:11px; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--muted); font-weight:600; margin-bottom:9px;}
+.mark{font-family:"IBM Plex Mono",monospace; font-size:12px; font-weight:600;}
+.gate-v{font-size:21px; font-weight:600; letter-spacing:-.01em;}
+.gate-v .vs{font-size:12.5px; color:var(--muted); font-weight:400; margin-left:5px;}
+.meter{margin-top:11px; height:5px; border-radius:3px; background:var(--surface-2); position:relative; overflow:hidden;}
+.meter i{position:absolute; inset:0 auto 0 0; border-radius:3px; display:block; background:var(--muted);}
+.meter .thr{position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--ink-2); opacity:.65;}
+.gate-n{margin-top:8px; font-size:12px; color:var(--ink-2);}
+
+.grid{display:grid; gap:16px; grid-template-columns:repeat(12,1fr); align-items:start;}
+.card{background:var(--surface); border:1px solid var(--rule); border-radius:10px; box-shadow:var(--shadow); padding:17px 18px 18px;}
+.span7{grid-column:span 7} .span5{grid-column:span 5}
+.span6{grid-column:span 6} .span12{grid-column:1/-1}
+h2{font-size:12px; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); font-weight:600; margin:0 0 3px;}
+.cap{font-size:12.5px; color:var(--ink-2); margin:0 0 14px;}
+.big{font-size:30px; font-weight:600; letter-spacing:-.02em; line-height:1.15;}
+
+.tscroll{overflow-x:auto; margin:0 -18px; padding:0 18px;}
+table{border-collapse:collapse; width:100%; font-size:12.5px; min-width:440px;}
+th{text-align:left; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--muted); font-weight:600; padding:0 12px 7px 0; border-bottom:1px solid var(--rule); white-space:nowrap;}
+td{padding:8px 12px 8px 0; border-bottom:1px solid var(--grid); vertical-align:top;}
+tr:last-child td{border-bottom:0;}
+td.num,th.num{text-align:right; padding-right:0; font-variant-numeric:tabular-nums;}
+.empty{padding:24px 0 8px; text-align:center; color:var(--muted); font-size:13px;}
+.empty b{display:block; color:var(--ink-2); font-weight:600; margin-bottom:3px;}
+
+.rule{display:grid; grid-template-columns:44px 1fr; gap:14px; padding:12px 0; border-bottom:1px solid var(--grid);}
+.rule:last-child{border-bottom:0; padding-bottom:0;}
+.rid{font-family:"IBM Plex Mono",monospace; font-size:11.5px; font-weight:600; color:var(--accent);
+  background:var(--accent-soft); border-radius:4px; height:20px; display:flex; align-items:center; justify-content:center;}
+.rtx{font-size:13px; color:var(--ink-2);}
+
+.stats{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--grid);
+  border:1px solid var(--grid); border-radius:8px; overflow:hidden; margin-top:14px;}
+.stat{background:var(--surface); padding:10px 12px;}
+.stat dt{font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); font-weight:600;}
+.stat dd{margin:3px 0 0; font-size:17px; font-weight:600; letter-spacing:-.01em;}
+.stat .sn{font-size:11.5px; color:var(--muted); margin-top:1px;}
+.neg{color:var(--crit)} .pos{color:var(--good)}
+.chip{display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:600; letter-spacing:.04em;
+  padding:2px 7px; border-radius:4px; background:var(--surface-2); color:var(--ink-2); white-space:nowrap;}
+.chip.wait{background:var(--warn-bg); color:var(--warn-ink)}
+.chip.ok{background:var(--good-bg); color:var(--good)}
+.chip.bad{background:var(--crit-bg); color:var(--crit)}
+.chip.acc{background:var(--accent-soft); color:var(--accent)}
+.pill.dry_run{background:var(--accent-soft); color:var(--accent); border-color:transparent;}
+.pill.halted{background:var(--crit-bg); color:var(--crit); border-color:transparent;}
+
+figure{margin:0}
+svg{display:block; width:100%; height:auto; overflow:visible;}
+.lg{display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--ink-2); margin:2px 0 10px;}
+.lg span{display:inline-flex; align-items:center; gap:6px;}
+.sw{width:14px; height:2.5px; border-radius:2px; display:inline-block;}
+.tip{position:fixed; z-index:20; pointer-events:none; opacity:0; transition:opacity .09s;
+  background:var(--surface); border:1px solid var(--rule); border-radius:7px; box-shadow:var(--shadow);
+  padding:8px 10px; font-size:12px; min-width:118px;}
+.tip b{display:block; font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted); font-weight:600; margin-bottom:4px;}
+.tip .r{display:flex; justify-content:space-between; gap:14px; font-variant-numeric:tabular-nums;}
+.hit{fill:transparent; cursor:crosshair;}
+
+.act{list-style:none; margin:0; padding:0;}
+.act li{display:grid; grid-template-columns:74px 1fr; gap:12px; padding:9px 0; border-bottom:1px solid var(--grid); font-size:12.5px;}
+.act li:last-child{border-bottom:0}
+.act time{color:var(--muted); font-family:"IBM Plex Mono",monospace; font-size:11.5px;}
+footer{margin-top:30px; padding-top:16px; border-top:1px solid var(--rule); color:var(--muted); font-size:11.5px;}
+@media (max-width:900px){
+  .span7,.span5,.span6{grid-column:1/-1}
+  .gates{grid-template-columns:1fr;}
+  .gate{border-right:0; border-bottom:1px solid var(--rule);}
+  .gate:last-child{border-bottom:0;}
+  .stats{grid-template-columns:repeat(2,1fr);}
+  .verdict-why{margin-left:0; text-align:left; width:100%;}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <h1>QQQ Volatility Carry</h1>
+    <span class="pill mono">v6</span>
+    <span class="pill mono planned" id="statusPill">PLANNED</span>
+    <span class="stamp mono" id="stamp">loading…</span>
+  </header>
+  <p class="sub">A filtered monthly iron condor on QQQ, funded against a rolling long VIX call spread. The rules and backtest below are fixed; the gates, order queue, account and trade log read live from the Supabase log.</p>
+
+  <div class="conn" id="conn" hidden><span class="ic" id="connIc">·</span><span id="connMsg"></span></div>
+
+  <section class="verdict">
+    <div class="verdict-head">
+      <span class="dot" id="vDot" style="background:var(--muted)"></span>
+      <span class="verdict-title" id="vh">Reading today's state…</span>
+      <span class="verdict-why" id="vWhy"></span>
+    </div>
+    <div class="gates">
+      <div class="gate">
+        <div class="gate-h"><span class="mark" id="g1m">·</span> Trend filter · R2</div>
+        <div class="gate-v"><span class="mono" id="g1v">—</span><span class="vs">QQQ vs 10-mo MA</span></div>
+        <div class="meter"><i id="g1bar" style="width:0"></i><span class="thr" style="left:66.7%"></span></div>
+        <div class="gate-n" id="g1n">—</div>
+      </div>
+      <div class="gate">
+        <div class="gate-h"><span class="mark" id="g2m">·</span> Volatility filter · R2</div>
+        <div class="gate-v"><span class="mono" id="g2v">—</span><span class="vs">VIX vs 25 skip level</span></div>
+        <div class="meter"><i id="g2bar" style="width:0"></i><span class="thr" style="left:62.5%"></span></div>
+        <div class="gate-n" id="g2n">—</div>
+      </div>
+      <div class="gate">
+        <div class="gate-h"><span class="mark" id="g3m">·</span> Funding</div>
+        <div class="gate-v"><span class="mono" id="g3v">—</span><span class="vs">of $1,000 collateral</span></div>
+        <div class="meter"><i id="g3bar" style="width:0"></i><span class="thr" style="left:100%"></span></div>
+        <div class="gate-n" id="g3n">—</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid">
+
+    <section class="card span5">
+      <h2>Account</h2>
+      <p class="cap">Robinhood ••••6066 — the “Agentic” account this strategy runs in.</p>
+      <div class="big mono" id="acctVal">—</div>
+      <div class="cap" style="margin:6px 0 0" id="acctNote">Awaiting the live read.</div>
+      <figure style="margin-top:14px"><div id="eqWrap"></div></figure>
+    </section>
+
+    <section class="card span7">
+      <h2>Trend filter, 18 months</h2>
+      <p class="cap">Monthly closes against the 10-month moving average. Below that line the condor is skipped entirely — the single rule that did most of the work in the backtest.</p>
+      <div class="lg">
+        <span><i class="sw" style="background:var(--accent)"></i> QQQ close</span>
+        <span><i class="sw" style="background:var(--ma)"></i> 10-month MA</span>
+      </div>
+      <figure id="maWrap"></figure>
+    </section>
+
+    <section class="card span12" id="queueCard">
+      <h2>Order queue</h2>
+      <p class="cap">Every order the bot has proposed. Entries wait for Morris's one-time code (sent by email); exits are auto-approved. Approved orders are submitted at the next execution run (10:45, 13:45, 15:45 ET) only if the filters and price still hold.</p>
+      <div class="tscroll"><div id="queueWrap"><div class="empty">Loading…</div></div></div>
+    </section>
+
+    <section class="card span6">
+      <h2>Open positions</h2>
+      <p class="cap">Every leg currently working, by expiry.</p>
+      <div class="tscroll"><div id="posWrap"><div class="empty">Loading…</div></div></div>
+    </section>
+
+    <section class="card span6">
+      <h2>Closed trades</h2>
+      <p class="cap">Realised P&amp;L per spread, with the rule that closed it.</p>
+      <div class="tscroll"><div id="trWrap"><div class="empty">Loading…</div></div></div>
+    </section>
+
+    <section class="card span12">
+      <h2>Backtest reference · v6</h2>
+      <p class="cap">248 overlapping 24-month windows, 2004–2026, per $1,000 of collateral, priced on the parity-measured VIX curve at STRESS&nbsp;=&nbsp;1.0. This is what live results get judged against, not a forecast. On the raw calm curve (STRESS&nbsp;=&nbsp;0) the same run means +$396, a −$42 tenth percentile and 15% losing windows.</p>
+      <figure id="htWrap"></figure>
+      <dl class="stats" id="btStats"></dl>
+    </section>
+
+    <section class="card span7">
+      <h2>Rules in force</h2>
+      <p class="cap">Unchanged since v4. v6 corrected the VIX pricing only — no strike or filter moved.</p>
+      <div id="rulesWrap"></div>
+    </section>
+
+    <section class="card span5">
+      <h2>Activity</h2>
+      <p class="cap">What each check saw and did.</p>
+      <ul class="act" id="actWrap"><li><span style="color:var(--muted)">Loading…</span></li></ul>
+    </section>
+
+  </div>
+
+  <footer>Entries are placed only after Morris approves them with a one-time code; exits (R3, R5) execute on their own and are logged here. Live rows are read directly from the Supabase log with a read-only key; nothing on this page can place, change or approve an order — approvals happen only through the one-time links in the email.</footer>
+</div>
+<div class="tip" id="tip" role="tooltip" aria-hidden="true"></div>
+
+<script>
+/* ---------- fixed project data (from the v6 paper, not from the database) ---------- */
+const RULES = {
+  R1:"Monthly QQQ iron condor, ~30 DTE: put side 10% OTM, call side 8% OTM, both 10-wide. Collateral $1,000 (one side).",
+  R2:"Skip the condor entirely when VIX ≥ 25, or when QQQ is below its 10-month (~200-day) moving average.",
+  R3:"Close a condor side at 3× the credit received, or if QQQ comes within 2% of the short strike.",
+  R4:"Leg B: hold one VIX 25/40 call spread about four months out. Re-buy when the open one has a month left. Never buy at VIX ≥ 22.",
+  R5:"Leg B exit, at market, no resting GTC: sell on the first daily VIX close ≥ 30. Salvage — if VIX reached 25 then closes back below 22 without ever touching 30, sell that day."
+};
+const BT = {mean:630, pct:31, p10:27, worst:-373, worstWin:"2023-03", losing:23, windows:248};
+/* QQQ monthly close vs its 10-month MA. Final point (*) is the live intramonth
+   quote against the MA of the ten completed months. */
+const MA_SERIES = [{"m":"2025-03","c":468.92,"ma":491.87},{"m":"2025-04","c":475.47,"ma":491.51},{"m":"2025-05","c":519.11,"ma":496.31},{"m":"2025-06","c":551.64,"ma":503.85},{"m":"2025-07","c":565.01,"ma":511.54},{"m":"2025-08","c":570.4,"ma":520.2},{"m":"2025-09","c":600.37,"ma":529.26},{"m":"2025-10","c":629.07,"ma":541.04},{"m":"2025-11","c":619.25,"ma":550.74},{"m":"2025-12","c":614.31,"ma":561.35},{"m":"2026-01","c":621.87,"ma":576.65},{"m":"2026-02","c":607.29,"ma":589.83},{"m":"2026-03","c":577.18,"ma":595.64},{"m":"2026-04","c":667.74,"ma":607.25},{"m":"2026-05","c":738.31,"ma":624.58},{"m":"2026-06","c":736.4,"ma":641.18},{"m":"2026-07","c":687.99,"ma":649.94},{"m":"2026-08","c":716.76,"ma":658.71},{"m":"2026-09*","c":747.47,"ma":658.71}];
+/* Outcome distribution of the 248 windows, from data/bt_v6.csv. */
+const HIST = {edges:[-500,-250,0,250,500,750,1000,1250,1500,1750,2000,2500],
+              counts:[1,22,48,45,40,34,13,28,16,0,1]};
+
+const SB_PROJECT = "bqsbxaptzauxfjxptgfo";
+const SNAP_SQL = `select json_build_object(
+  'strategy', (select row_to_json(s) from strategy s limit 1),
+  'days',     (select coalesce(json_agg(row_to_json(ds) order by ds.d), '[]'::json) from daily_state ds),
+  'positions',(select coalesce(json_agg(row_to_json(p) order by p.expiry), '[]'::json) from positions p where p.status='open'),
+  'trades',   (select coalesce(json_agg(row_to_json(t) order by t.close_date desc), '[]'::json) from trades t),
+  'activity', (select coalesce(json_agg(row_to_json(a)), '[]'::json) from (select * from activity order by ts desc limit 8) a),
+  'pending',  (select coalesce(json_agg(row_to_json(q)), '[]'::json) from (select id, created_at, trade_date, kind, leg, structure, direction, limit_price, status, expires_at, approved_at, rh_order_id, fill_price, error, rationale->>'reason' as reason from pending_orders order by id desc limit 20) q)
+) as snap`;
+
+const fmtUsd = n => (n<0?"−$":"$") + Math.abs(Math.round(n)).toLocaleString('en-US');
+const fmt2 = n => Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc  = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $ = id => document.getElementById(id);
+
+/* ---------------- tooltip ---------------- */
+const tip = $('tip');
+function showTip(html,x,y){
+  tip.innerHTML=html; tip.style.opacity=1; tip.setAttribute('aria-hidden','false');
+  const w=tip.offsetWidth,h=tip.offsetHeight;
+  tip.style.left=Math.min(Math.max(8,x-w/2), innerWidth-w-8)+'px';
+  tip.style.top =Math.max(8,y-h-12)+'px';
+}
+const hideTip=()=>{tip.style.opacity=0; tip.setAttribute('aria-hidden','true');};
+
+/* ---------------- charts ---------------- */
+function drawMA(el,rows){
+  const W=640,H=250,L=52,R=12,T=14,B=30;
+  const xs=i=>L+i*(W-L-R)/(rows.length-1);
+  const lo=Math.min(...rows.map(r=>Math.min(r.c,r.ma)))*0.97;
+  const hi=Math.max(...rows.map(r=>Math.max(r.c,r.ma)))*1.03;
+  const ys=v=>T+(hi-v)/(hi-lo)*(H-T-B);
+  const path=k=>rows.map((r,i)=>`${i?'L':'M'}${xs(i).toFixed(1)},${ys(r[k]).toFixed(1)}`).join('');
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="QQQ monthly close against its 10-month moving average, 18 months">`;
+  for(let v=Math.ceil(lo/100)*100; v<=hi; v+=100){
+    s+=`<line x1="${L}" x2="${W-R}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--grid)" stroke-width="1"/>`
+      +`<text x="${L-8}" y="${ys(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${v}</text>`;
+  }
+  rows.forEach((r,i)=>{ if(i%3===0||i===rows.length-1)
+    s+=`<text x="${xs(i)}" y="${H-B+18}" text-anchor="middle" font-size="10.5" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${r.m.slice(2)}</text>`; });
+  s+=`<path d="${path('ma')}" fill="none" stroke="var(--ma)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  s+=`<path d="${path('c')}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  const last=rows[rows.length-1];
+  s+=`<circle cx="${xs(rows.length-1)}" cy="${ys(last.c)}" r="4.5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>`;
+  s+=`<text x="${xs(rows.length-1)-7}" y="${ys(last.c)-11}" text-anchor="end" font-size="11.5" font-weight="600" fill="var(--ink)" font-family="IBM Plex Mono,monospace">${last.c.toFixed(0)}</text>`;
+  s+=`<line id="ch" x1="0" x2="0" y1="${T}" y2="${H-B}" stroke="var(--axis)" stroke-width="1" opacity="0"/>`;
+  const w=(W-L-R)/(rows.length-1);
+  rows.forEach((r,i)=>{ s+=`<rect class="hit" x="${xs(i)-w/2}" y="${T}" width="${w}" height="${H-T-B}" data-i="${i}"/>`; });
+  s+=`</svg>`;
+  el.innerHTML=s;
+  const svg=el.querySelector('svg'), ch=svg.querySelector('#ch');
+  svg.querySelectorAll('.hit').forEach(hEl=>{
+    hEl.addEventListener('pointerenter',()=>{
+      const i=+hEl.dataset.i, r=rows[i], gap=r.c-r.ma, b=hEl.getBoundingClientRect();
+      ch.setAttribute('x1',xs(i)); ch.setAttribute('x2',xs(i)); ch.setAttribute('opacity','1');
+      showTip(`<b>${esc(r.m)}</b>
+        <div class="r"><span>QQQ</span><span>${fmt2(r.c)}</span></div>
+        <div class="r"><span>10-mo MA</span><span>${fmt2(r.ma)}</span></div>
+        <div class="r"><span>Gap</span><span>${gap>=0?'+':'−'}${Math.abs(gap/r.ma*100).toFixed(1)}%</span></div>`,
+        b.left+b.width/2, b.top);
+    });
+  });
+  svg.addEventListener('pointerleave',()=>{ch.setAttribute('opacity','0'); hideTip();});
+}
+
+function drawHist(el,h){
+  const W=900,H=190,L=40,R=10,T=12,B=36,n=h.counts.length;
+  const bw=(W-L-R)/n, max=Math.max(...h.counts), ys=v=>T+(1-v/max)*(H-T-B);
+  let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Distribution of 248 backtest window outcomes">`;
+  [0,10,20,30,40].forEach(v=>{ if(v<=max)
+    s+=`<line x1="${L}" x2="${W-R}" y1="${ys(v)}" y2="${ys(v)}" stroke="var(--grid)"/>`
+      +`<text x="${L-7}" y="${ys(v)+4}" text-anchor="end" font-size="10.5" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${v}</text>`; });
+  h.counts.forEach((c,i)=>{
+    const x=L+i*bw+1, hgt=(H-T-B)*c/max, neg=h.edges[i]<0;
+    if(c) s+=`<rect x="${x.toFixed(1)}" y="${(H-B-hgt).toFixed(1)}" width="${(bw-2).toFixed(1)}" height="${hgt.toFixed(1)}" rx="3" ry="3" fill="${neg?'var(--crit)':'var(--accent)'}"/>`;
+    s+=`<rect class="hit" x="${x-1}" y="${T}" width="${bw}" height="${H-T-B}" data-i="${i}"/>`;
+  });
+  s+=`<line x1="${L}" x2="${W-R}" y1="${H-B}" y2="${H-B}" stroke="var(--axis)"/>`;
+  h.edges.forEach((e,i)=>{ if(i%2===0)
+    s+=`<text x="${L+i*bw}" y="${H-B+17}" text-anchor="middle" font-size="10.5" fill="var(--muted)" font-family="IBM Plex Mono,monospace">${e<0?'−':''}$${Math.abs(e)}</text>`; });
+  s+=`<text x="${L}" y="${H-3}" font-size="10.5" fill="var(--muted)">24-month window outcome, per $1,000 of collateral</text></svg>`;
+  el.innerHTML=s;
+  el.querySelectorAll('.hit').forEach(r=>{
+    r.addEventListener('pointerenter',()=>{
+      const i=+r.dataset.i,c=h.counts[i],b=r.getBoundingClientRect();
+      showTip(`<b>${h.edges[i]<0?'−':''}$${Math.abs(h.edges[i])} to ${h.edges[i+1]<0?'−':''}$${Math.abs(h.edges[i+1])}</b>
+        <div class="r"><span>Windows</span><span>${c}</span></div>
+        <div class="r"><span>Share</span><span>${(c/248*100).toFixed(1)}%</span></div>`, b.left+b.width/2, b.top+40);
+    });
+  });
+  el.addEventListener('pointerleave',hideTip);
+}
+
+function drawEquity(el,rows){
+  if(rows.length<2){
+    el.innerHTML=`<div class="empty" style="padding:16px 0 4px"><b>No curve yet</b>${rows.length?'One snapshot recorded.':'No snapshots recorded.'} The line starts once the daily check has run more than once.</div>`;
+    return;
+  }
+  const W=380,H=90,L=6,R=6,T=8,B=8, vals=rows.map(r=>+r.account_value);
+  const lo=Math.min(...vals)*0.98, hi=Math.max(...vals)*1.02;
+  const xs=i=>L+i*(W-L-R)/(rows.length-1), ys=v=>T+(hi-v)/((hi-lo)||1)*(H-T-B);
+  const d=rows.map((r,i)=>`${i?'L':'M'}${xs(i).toFixed(1)},${ys(+r.account_value).toFixed(1)}`).join('');
+  el.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Account value over time">
+    <path d="${d}L${xs(rows.length-1)},${H-B}L${L},${H-B}Z" fill="var(--accent-soft)"/>
+    <path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round"/>
+    <circle cx="${xs(rows.length-1)}" cy="${ys(vals[vals.length-1])}" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/></svg>`;
+}
+
+/* ---------------- static sections, drawn immediately ---------------- */
+$('rulesWrap').innerHTML = Object.keys(RULES).map(k=>
+  `<div class="rule"><span class="rid">${k}</span><span class="rtx">${esc(RULES[k])}</span></div>`).join('');
+$('btStats').innerHTML = [
+  ['Mean', fmtUsd(BT.mean), `${BT.pct}% a year`],
+  ['10th percentile', fmtUsd(BT.p10), 'one window in ten is worse'],
+  ['Worst window', fmtUsd(BT.worst), `starting ${BT.worstWin}`],
+  ['Losing windows', `${BT.losing} / ${BT.windows}`, '9% of all windows']
+].map(([k,v,n])=>`<div class="stat"><dt>${k}</dt><dd class="${v.startsWith('−')?'neg':''}">${v}</dd><div class="sn">${n}</div></div>`).join('');
+drawMA($('maWrap'), MA_SERIES);
+drawHist($('htWrap'), HIST);
+
+/* ---------------- live state ---------------- */
+function setConn(icon, colorVar, html){
+  $('conn').hidden = false;
+  $('connIc').textContent = icon;
+  $('connIc').style.color = `var(${colorVar})`;
+  $('connMsg').innerHTML = html;
+}
+function liveUnavailable(msg){
+  $('vh').textContent = 'Live state unavailable';
+  $('vWhy').textContent = 'The rules and backtest below are unaffected.';
+  $('acctNote').textContent = msg;
+  $('posWrap').innerHTML = `<div class="empty"><b>Not loaded</b>${msg}</div>`;
+  $('trWrap').innerHTML  = `<div class="empty"><b>Not loaded</b>${msg}</div>`;
+  $('actWrap').innerHTML = `<li><span style="color:var(--muted)">${esc(msg)}</span></li>`;
+  $('stamp').textContent = 'live read unavailable';
+  drawEquity($('eqWrap'), []);
+}
+
+const SB_URL = "https://bqsbxaptzauxfjxptgfo.supabase.co";
+const SB_KEY = "sb_publishable_ZI-vSFWXfIUa8Psyjkz6tw_-iBMOcsJ";   // publishable key: read-only; the database grants anon SELECT and nothing else
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+async function loadSnap(){
+  const [st, days, pos, tr, act, pend] = await Promise.all([
+    sb.from('strategy').select('*').limit(1),
+    sb.from('daily_state').select('*').order('d'),
+    sb.from('positions').select('*').eq('status','open').order('expiry'),
+    sb.from('trades').select('*').order('close_date',{ascending:false, nullsFirst:true}),
+    sb.from('activity').select('*').order('ts',{ascending:false}).limit(8),
+    sb.from('pending_orders').select('id,created_at,trade_date,kind,leg,structure,direction,limit_price,status,expires_at,approved_at,rh_order_id,fill_price,error,rationale').order('id',{ascending:false}).limit(20),
+  ]);
+  const bad=[st,days,pos,tr,act,pend].find(r=>r.error);
+  if(bad) throw new Error(bad.error.message);
+  return {strategy:(st.data||[])[0]||{}, days:days.data||[], positions:pos.data||[], trades:tr.data||[], activity:act.data||[],
+          pending:(pend.data||[]).map(o=>({...o, reason:(o.rationale||{}).reason}))};
+}
+
+async function refresh(){
+  try{
+    const snap=await loadSnap();
+    $('conn').hidden=true;
+    render(snap, Date.now());
+  }catch(e){
+    setConn('!','--warn',`<b>Live read failed.</b> ${esc(e.message)}`);
+    liveUnavailable('The live read did not complete.');
+  }
+}
+refresh();
+setInterval(refresh, 120000);
+</script>
+</body>
+</html>
