@@ -276,15 +276,7 @@ const MA_SERIES = [{"m":"2025-03","c":468.92,"ma":491.87},{"m":"2025-04","c":475
 const HIST = {edges:[-500,-250,0,250,500,750,1000,1250,1500,1750,2000,2500],
               counts:[1,22,48,45,40,34,13,28,16,0,1]};
 
-const SB_PROJECT = "bqsbxaptzauxfjxptgfo";
-const SNAP_SQL = `select json_build_object(
-  'strategy', (select row_to_json(s) from strategy s limit 1),
-  'days',     (select coalesce(json_agg(row_to_json(ds) order by ds.d), '[]'::json) from daily_state ds),
-  'positions',(select coalesce(json_agg(row_to_json(p) order by p.expiry), '[]'::json) from positions p where p.status='open'),
-  'trades',   (select coalesce(json_agg(row_to_json(t) order by t.close_date desc), '[]'::json) from trades t),
-  'activity', (select coalesce(json_agg(row_to_json(a)), '[]'::json) from (select * from activity order by ts desc limit 8) a),
-  'pending',  (select coalesce(json_agg(row_to_json(q)), '[]'::json) from (select id, created_at, trade_date, kind, leg, structure, direction, limit_price, status, expires_at, approved_at, rh_order_id, fill_price, error, rationale->>'reason' as reason from pending_orders order by id desc limit 20) q)
-) as snap`;
+
 
 const fmtUsd = n => (n<0?"−$":"$") + Math.abs(Math.round(n)).toLocaleString('en-US');
 const fmt2 = n => Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -414,6 +406,100 @@ function liveUnavailable(msg){
   drawEquity($('eqWrap'), []);
 }
 
+function render(snap, storedAt){
+  const S=snap.strategy||{}, days=snap.days||[], d=days[days.length-1]||{};
+  const collateral = +S.collateral || 1000;
+
+  const sp=$('statusPill');
+  sp.textContent=(S.status||'planned').replace('_',' ').toUpperCase();
+  sp.className='pill mono '+(['live','dry_run','halted'].includes(S.status)?S.status:'planned');
+  $('stamp').textContent = d.d ? `state as of ${d.d}${storedAt?' · read '+new Date(storedAt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}):''}` : 'no snapshots yet';
+
+  const above=!!d.above_ma, vixOk=!!d.vix_ok, acct=+d.account_value||0, funded=acct>=collateral;
+  const setMark=(el,ok)=>{const m=$(el); m.textContent=ok?'✓':'✕'; m.style.color=ok?'var(--good)':'var(--crit)';};
+
+  setMark('g1m',above);
+  $('g1v').textContent = d.qqq!=null?fmt2(d.qqq):'—';
+  $('g1n').textContent = d.qqq_ma10!=null
+    ? `MA ${fmt2(d.qqq_ma10)} — ${above?'above by':'below by'} ${Math.abs((d.qqq-d.qqq_ma10)/d.qqq_ma10*100).toFixed(1)}%` : 'no reading';
+  if(d.qqq!=null&&d.qqq_ma10){ const b=$('g1bar');
+    b.style.width=Math.min(100,(d.qqq/(d.qqq_ma10*1.5))*100)+'%';
+    b.style.background=above?'var(--good)':'var(--crit)'; }
+
+  setMark('g2m',vixOk);
+  $('g2v').textContent = d.vix!=null?fmt2(d.vix):'—';
+  $('g2n').textContent = d.vix!=null
+    ? (vixOk?`${(25-d.vix).toFixed(2)} below the skip level`:`${(d.vix-25).toFixed(2)} above — condor skipped`) : 'no reading';
+  if(d.vix!=null){ const b=$('g2bar');
+    b.style.width=Math.min(100,d.vix/40*100)+'%'; b.style.background=vixOk?'var(--good)':'var(--crit)'; }
+
+  setMark('g3m',funded);
+  $('g3v').textContent = fmtUsd(acct);
+  $('g3n').textContent = funded?'Collateral available':`${fmtUsd(collateral-acct)} short of one condor side`;
+  { const b=$('g3bar'); b.style.width=Math.min(100,acct/collateral*100)+'%';
+    b.style.background=funded?'var(--good)':'var(--crit)'; }
+
+  const pass=above&&vixOk, dot=$('vDot');
+  if(pass&&funded){ dot.style.background='var(--good)';
+    $('vh').textContent='Clear to open a condor';
+    $('vWhy').textContent='Both R2 filters pass and the collateral is there.'; }
+  else if(pass){ dot.style.background='var(--warn)';
+    $('vh').textContent='Filters pass — blocked on funding';
+    $('vWhy').textContent='The setup is valid; the account cannot post the collateral.'; }
+  else { dot.style.background='var(--crit)';
+    $('vh').textContent='Standing down — R2 filter active';
+    $('vWhy').textContent = !above?'QQQ is below its 10-month moving average.':'VIX is at or above 25.'; }
+
+  $('acctVal').textContent = fmtUsd(acct);
+  $('acctNote').textContent = d.note || '';
+  drawEquity($('eqWrap'), days.filter(r=>r.account_value!=null));
+
+  const pos=snap.positions||[];
+  $('posWrap').innerHTML = pos.length
+    ? `<table><thead><tr><th>Leg</th><th>Contract</th><th>Side</th><th class="num">Qty</th><th class="num">Open</th><th class="num">Mark</th></tr></thead><tbody>`
+      + pos.map(p=>`<tr><td class="mono">${esc(p.leg)}</td>
+          <td class="mono">${esc(p.symbol)} ${esc(p.expiry)} ${fmt2(p.strike)}${p.option_type==='call'?'C':'P'}</td>
+          <td>${esc(p.side)}</td><td class="num mono">${esc(p.qty)}</td>
+          <td class="num mono">${p.open_price!=null?fmt2(p.open_price):'—'}</td>
+          <td class="num mono">${p.mark!=null?fmt2(p.mark):'—'}</td></tr>`).join('')
+      + `</tbody></table>`
+    : `<div class="empty"><b>Nothing open</b>No legs are working. The first condor goes on when all three gates above are green.</div>`;
+
+  const tr=snap.trades||[];
+  const realised=tr.reduce((a,t)=>a+(+t.pnl||0),0);
+  $('trWrap').innerHTML = tr.length
+    ? `<table><thead><tr><th>Closed</th><th>Structure</th><th>Exit</th><th class="num">P&amp;L</th></tr></thead><tbody>`
+      + tr.map(t=>`<tr><td class="mono">${esc(t.close_date||'open')}</td><td>${esc(t.structure)}</td>
+          <td class="mono">${esc(t.exit_reason||'—')}</td>
+          <td class="num mono ${(+t.pnl||0)<0?'neg':'pos'}">${fmtUsd(+t.pnl||0)}</td></tr>`).join('')
+      + `</tbody></table><div class="cap" style="margin:12px 0 0">Realised to date ${fmtUsd(realised)}.</div>`
+    : `<div class="empty"><b>No closed trades</b>Nothing has been traded in this account to date.</div>`;
+
+  const q=snap.pending||[];
+  const chipFor=st=>({awaiting_approval:'wait',approved:'acc',submitting:'acc',submitted:'acc',filled:'ok',dry_run:'ok',
+                      rejected:'bad',expired:'',cancelled:'',failed:'bad',book_failed:'bad'}[st]||'');
+  const label=st=>({awaiting_approval:'awaiting your code',approved:'approved — submits next run',submitting:'submitting',
+                    submitted:'working at broker',filled:'filled',dry_run:'dry run — paper filled',rejected:'rejected',
+                    expired:'expired',cancelled:'cancelled',failed:'failed',book_failed:'filled, booking failed'}[st]||st);
+  const fmtT=ts=>{const t=new Date(ts);return t.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});};
+  $('queueWrap').innerHTML = q.length
+    ? `<table style="min-width:640px"><thead><tr><th>#</th><th>Proposed</th><th>Kind</th><th>Order</th><th class="num">Limit</th><th>Status</th><th>Why</th><th class="num">Fill</th></tr></thead><tbody>`
+      + q.map(o=>`<tr><td class="mono">${esc(o.id)}</td><td class="mono">${fmtT(o.created_at)}</td>
+          <td>${esc(o.kind)} ${esc(o.leg)}</td><td>${esc(o.structure)}<br><span style="color:var(--muted);font-size:11.5px">${esc(o.direction)}</span></td>
+          <td class="num mono">${fmt2(o.limit_price)}</td>
+          <td><span class="chip ${chipFor(o.status)}">${esc(label(o.status))}</span>${o.error?`<div style="color:var(--crit);font-size:11.5px;margin-top:3px">${esc(o.error)}</div>`:''}</td>
+          <td style="color:var(--ink-2);max-width:260px">${esc(o.reason||'')}</td>
+          <td class="num mono">${o.fill_price!=null?fmt2(o.fill_price):'—'}</td></tr>`).join('')
+      + `</tbody></table>`
+    : `<div class="empty"><b>Nothing proposed yet</b>The 9:40 run adds a row here whenever the rules call for a trade.</div>`;
+
+  const acts=snap.activity||[];
+  $('actWrap').innerHTML = acts.length ? acts.map(a=>{
+    const t=new Date(a.ts);
+    return `<li><time datetime="${esc(a.ts)}">${t.toLocaleDateString('en-US',{month:'short',day:'numeric'})}</time><span>${esc(a.message)}</span></li>`;
+  }).join('') : `<li><span style="color:var(--muted)">Nothing logged yet.</span></li>`;
+}
+
 const SB_URL = "https://bqsbxaptzauxfjxptgfo.supabase.co";
 const SB_KEY = "sb_publishable_ZI-vSFWXfIUa8Psyjkz6tw_-iBMOcsJ";   // publishable key: read-only; the database grants anon SELECT and nothing else
 const sb = supabase.createClient(SB_URL, SB_KEY);
@@ -432,16 +518,9 @@ async function loadSnap(){
   return {strategy:(st.data||[])[0]||{}, days:days.data||[], positions:pos.data||[], trades:tr.data||[], activity:act.data||[],
           pending:(pend.data||[]).map(o=>({...o, reason:(o.rationale||{}).reason}))};
 }
-
 async function refresh(){
-  try{
-    const snap=await loadSnap();
-    $('conn').hidden=true;
-    render(snap, Date.now());
-  }catch(e){
-    setConn('!','--warn',`<b>Live read failed.</b> ${esc(e.message)}`);
-    liveUnavailable('The live read did not complete.');
-  }
+  try{ const snap=await loadSnap(); $('conn').hidden=true; render(snap, Date.now()); }
+  catch(e){ setConn('!','--warn',`<b>Live read failed.</b> ${esc(e.message)}`); liveUnavailable('The live read did not complete.'); }
 }
 refresh();
 setInterval(refresh, 120000);
