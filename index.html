@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Order approval</title>
+<style>
+  :root{--ink:#10131a;--ink2:#545c6b;--muted:#858d9c;--bg:#f4f6f9;--card:#fff;--rule:#e4e8ef;--good:#1a7f37;--bad:#b42323;--grey:#6e7781;--acc:#2a78d6}
+  @media (prefers-color-scheme:dark){:root{--ink:#f2f4f8;--ink2:#a8b0be;--muted:#79808e;--bg:#0c0e12;--card:#14171d;--rule:#232832}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  main{max-width:480px;margin:0 auto;padding:40px 16px 60px}
+  .card{background:var(--card);border:1px solid var(--rule);border-radius:12px;padding:22px 20px}
+  h1{font-size:20px;margin:0 0 14px;letter-spacing:-.01em}
+  .big{font-size:19px;font-weight:600;margin:0 0 4px}
+  .sub{color:var(--ink2);margin:0 0 14px}
+  table{border-collapse:collapse;font-size:14px;margin:0 0 18px}
+  td{padding:3px 12px 3px 0;vertical-align:top}
+  td:first-child{color:var(--muted);white-space:nowrap}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+  button{width:100%;border:0;border-radius:8px;padding:15px 20px;font-size:17px;font-weight:600;color:#fff;cursor:pointer;background:var(--good)}
+  button.reject{background:var(--grey)} button.halt{background:var(--bad)}
+  button:disabled{opacity:.55;cursor:default}
+  button:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+  .note{color:var(--muted);font-size:13px;margin:16px 0 0}
+  .status{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:4px;background:var(--rule);color:var(--ink2)}
+  .result{margin-top:18px;padding:14px 16px;border-radius:8px;font-weight:600}
+  .ok{background:rgba(26,127,55,.12);color:var(--good)} .err{background:rgba(180,35,35,.12);color:var(--bad)}
+  a{color:var(--acc)}
+  .links{margin-top:22px;font-size:14px;display:flex;gap:16px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1 id="title">Loading order…</h1>
+    <div id="body"><p class="sub">Reading the order from the trading log.</p></div>
+    <div id="out"></div>
+  </div>
+  <div class="links">
+    <a href="https://claude.ai/artifact/CJqfZvzUsSkntbPSVHPQod">Open the trading dashboard →</a>
+  </div>
+</main>
+<script>
+(function(){
+  const API = "https://bqsbxaptzauxfjxptgfo.supabase.co/functions/v1/approve";
+  const DASH = "https://claude.ai/artifact/CJqfZvzUsSkntbPSVHPQod";
+  const q = new URLSearchParams(location.search);
+  const id = Number(q.get("id")), code = (q.get("code")||"").trim(), action = q.get("action") || "approve";
+  const $ = s => document.querySelector(s);
+  const esc = s => String(s==null?"":s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const verb = action==="halt" ? "HALT the strategy" : action==="reject" ? "reject this order" : "approve this order";
+  const cls  = action==="halt" ? "halt" : action==="reject" ? "reject" : "";
+
+  if(!id || !code){ $("#title").textContent="Incomplete link"; $("#body").innerHTML="<p class='sub'>This link is missing the order id or code. Use the buttons in the email.</p>"; return; }
+
+  fetch(API + "?id=" + id).then(r => r.json()).then(o => {
+    if(o.error){ $("#title").textContent="Unknown order"; $("#body").innerHTML=`<p class='sub'>${esc(o.error)}</p>`; return; }
+    const exp = new Date(o.expires_at).toLocaleString("en-US",{timeZone:"America/New_York",month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
+    const why = Object.entries(o.rationale||{}).map(([k,v]) => `<tr><td>${esc(k)}</td><td>${esc(typeof v==="object"?JSON.stringify(v):v)}</td></tr>`).join("");
+    $("#title").textContent = "Confirm: " + verb;
+    $("#body").innerHTML = `
+      <p class="big">#${o.id} ${esc(o.structure)}</p>
+      <p class="sub">${esc(o.direction)} limit <b class="mono">${Number(o.limit_price).toFixed(2)}</b> × 1 &nbsp;·&nbsp; <span class="status">${esc(o.status.replace("_"," "))}</span></p>
+      <table>${why}<tr><td>expires</td><td>${exp} ET</td></tr></table>
+      <button id="go" class="${cls}">Yes, ${esc(verb)}</button>
+      <p class="note">Nothing happens until you press the button. The bot submits an approved order at its next run (10:45 / 13:45 / 15:45 ET) only if the filters and price still hold.</p>`;
+    if(o.status !== "awaiting_approval" && action !== "halt"){
+      $("#go").disabled = true;
+      $("#go").textContent = "Order is already " + o.status.replace("_"," ");
+    }
+    $("#go").addEventListener("click", async () => {
+      const b = $("#go"); b.disabled = true; b.textContent = "Working…";
+      try{
+        const r = await fetch(API, {method:"POST", headers:{"content-type":"application/json"}, body: JSON.stringify({id, code, action})});
+        const j = await r.json();
+        if(j.ok){
+          const msg = {approved:"Order approved. It will be submitted at the next execution run if conditions still hold.",
+                       rejected:"Order rejected. It will not be submitted.",
+                       halted:"Strategy HALTED. All pending orders were rejected; nothing submits until status is set back to live."}[j.result];
+          $("#out").innerHTML = `<div class="result ok">${esc(msg)}</div><p class="note">Taking you to the dashboard…</p>`;
+          b.textContent = "Done";
+          setTimeout(() => location.href = DASH, 2500);
+        } else {
+          $("#out").innerHTML = `<div class="result err">Not applied: ${esc(j.result || j.error || "unknown error")}</div>`;
+          b.disabled = false; b.textContent = "Try again";
+        }
+      }catch(e){
+        $("#out").innerHTML = `<div class="result err">Could not reach the approval service: ${esc(e.message)}</div>`;
+        b.disabled = false; b.textContent = "Try again";
+      }
+    });
+  }).catch(e => { $("#title").textContent="Could not load"; $("#body").innerHTML=`<p class='sub'>${esc(e.message)}</p>`; });
+})();
+</script>
+</body>
+</html>
