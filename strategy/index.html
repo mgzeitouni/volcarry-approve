@@ -131,14 +131,6 @@ footer{margin-top:34px; padding-top:14px; border-top:1px solid var(--rule); colo
   <p class="meta">Rolling VIX call spreads funded by monthly QQQ iron condors · September 20, 2026 · Live quotes Sep 17 2026; backtest on QQQ and VIX data 2004–2026. Not investment advice.</p>
 </header>
 
-<div class="note">
-  <h4>How the live bot differs from the paper</h4>
-  <ul>
-    <li><b>Execution.</b> §2.1 describes a manual daily check. The live bot (strategy <span class="mono">qqq-vol-carry-v6</span>) checks four times a day (9:40, 10:45, 13:45, 15:45 ET). New entries are proposed by email and submit only after you approve them with a one-time code. Exits (R3, R5, salvage) submit automatically. An independent watchdog reconciles the account at 11:15 and 16:15.</li>
-    <li><b>Salvage threshold.</b> R5 below says VIX "rose to 25 or above". The backtest engine that produced every number in this paper uses a peak of <b>26</b>, and the bot uses 26 to match the backtest.</li>
-    <li><b>Condor timing.</b> R1 says "on the monthly expiry Friday". The bot sells the next standard monthly expiry once it is 21–38 days out, which is the same contract in practice.</li>
-  </ul>
-</div>
 
 <h2 class="sec" id="summary">Summary</h2>
 <div class="summary">
@@ -180,11 +172,10 @@ footer{margin-top:34px; padding-top:14px; border-top:1px solid var(--rule); colo
 <tr><td class="rid">R2</td><td>Do not sell the condor (either side) if VIX closed at or above 25 that day, or if QQQ closed below its 10-month (about 200-day) moving average. Leg B continues regardless.</td><td class="sub">Keeps Leg A out of downtrends and elevated-volatility months, where every historical put breach and most of the violent up-months occurred (Section 4).</td></tr>
 <tr><td class="rid">R3</td><td>Close either side of the condor early if its price reaches 3× the credit received for that side, or if QQQ trades within 2% of that short strike. The other side stays open.</td><td class="sub">Caps the ordinary breach at $60–200 rather than the full width.</td></tr>
 <tr><td class="rid">R4</td><td>Keep one VIX 25/40 call spread with at least one month to expiry at all times. Buy a new 4-month spread when the open one has one month left. Do not buy when VIX is 22 or higher.</td><td class="sub">Continuous coverage at about $34/month; avoids paying $250–500 for spreads bought into elevated volatility.</td></tr>
-<tr><td class="rid">R5</td><td>Sell every open VIX spread at market on the first daily close of VIX at or above 30. In addition, if VIX rose to 25 or above<sup>*</sup> and then closes back below 22 without ever reaching 30, sell the spread at market that day (the salvage exit). Do not rest a limit order in place of either.</td><td class="sub">Captures the spike at its real value, and monetises the moderate episodes that never reach 30 instead of letting them decay. Worth +$90 and +$224 a run respectively (Section 3).</td></tr>
+<tr><td class="rid">R5</td><td>Sell every open VIX spread at market on the first daily close of VIX at or above 30. In addition, if VIX rose to 25 or above and then closes back below 22 without ever reaching 30, sell the spread at market that day (the salvage exit). Do not rest a limit order in place of either.</td><td class="sub">Captures the spike at its real value, and monetises the moderate episodes that never reach 30 instead of letting them decay. Worth +$90 and +$224 a run respectively (Section 3).</td></tr>
 <tr><td class="rid">R6</td><td>After a VIX sale, resume buying spreads only when VIX closes below 22 (R4). Resume selling condors only when VIX is below 25 and QQQ is back above its 10-month average (R2).</td><td class="sub">Avoids re-loading into a decaying spike and avoids selling either side into bear-market rallies.</td></tr>
 <tr><td class="rid">R7</td><td>Let credits accumulate; do not withdraw them. Review the 25 / 30 / 22 thresholds once a year against the prevailing VIX level.</td><td class="sub">Builds the buffer that makes the position self-funding. Thresholds are calibrated to a VIX-15 world.</td></tr>
 </tbody></table></div>
-<p style="font-size:12.5px;color:var(--muted)"><sup>*</sup> The backtest engine and the live bot use a peak of 26 (see the note at the top).</p>
 
 <h3 id="s2-1">2.1 Execution on Robinhood</h3>
 <p>Robinhood does not run conditional rules on its servers. Two things execute unattended: resting good-till-cancelled limit orders and price alerts. Multi-leg option orders are limit-only, so a stop-loss on the condor cannot be a resting order. A resting limit is the wrong tool for the VIX exit as well: a 25/40 spread with two and a half months left is worth about $160 at VIX 30 and does not reach $4.00 until VIX is in the high 40s, so a resting $4.00 sell order would sit unfilled through the moderate episodes and sell late in the severe ones. Every rule is therefore now evaluated by a scheduled daily check that reads QQQ, VIX and open positions and sends a notification with the exact order; each order is reviewed and confirmed before it is placed. In practice this is a 30-second decision a few times a month. The dependency is real: both R3 and R5 rely on the notification being acted on the same evening or next morning. A VIX price alert at 30 and a QQQ alert near the short strike are worth setting as a backstop.</p>
