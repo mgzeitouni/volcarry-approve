@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Strategy Paper · Volatility Carry</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap">
+<style>
+:root{
+  color-scheme: light;
+  --plane:#f4f6f9; --surface:#ffffff; --surface-2:#eef1f6;
+  --ink:#10131a; --ink-2:#545c6b; --muted:#858d9c;
+  --grid:#e4e8ef; --rule:rgba(16,19,26,.10);
+  --accent:#2a78d6; --accent-soft:rgba(42,120,214,.13);
+  --good:#0ca30c; --crit:#d03b3b; --warn-ink:#8a5d00; --warn-bg:rgba(250,178,25,.16);
+  --shadow:0 1px 2px rgba(16,19,26,.05), 0 8px 24px -16px rgba(16,19,26,.25);
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  color-scheme: dark;
+  --plane:#0c0e12; --surface:#14171d; --surface-2:#1b1f27;
+  --ink:#f2f4f8; --ink-2:#a8b0be; --muted:#79808e;
+  --grid:#232832; --rule:rgba(242,244,248,.11);
+  --accent:#3987e5; --accent-soft:rgba(57,135,229,.18);
+  --warn-ink:#fab219; --warn-bg:rgba(250,178,25,.16);
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+}}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --plane:#0c0e12; --surface:#14171d; --surface-2:#1b1f27;
+  --ink:#f2f4f8; --ink-2:#a8b0be; --muted:#79808e;
+  --grid:#232832; --rule:rgba(242,244,248,.11);
+  --accent:#3987e5; --accent-soft:rgba(57,135,229,.18);
+  --warn-ink:#fab219; --warn-bg:rgba(250,178,25,.16);
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--plane); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px; line-height:1.65; -webkit-font-smoothing:antialiased;}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums;}
+nav.tabs{max-width:1120px; margin:0 auto; padding:14px 16px 0; display:flex; gap:4px; font-size:13px;}
+nav.tabs a{color:var(--ink-2); text-decoration:none; padding:6px 12px; border-radius:6px; font-weight:500;}
+nav.tabs a:hover{background:var(--surface-2); color:var(--ink);}
+nav.tabs a[aria-current="page"]{background:var(--surface); color:var(--ink); box-shadow:var(--shadow); border:1px solid var(--rule);}
+
+.layout{max-width:1120px; margin:0 auto; padding:20px 16px 64px; display:grid; grid-template-columns:220px minmax(0,1fr); gap:32px; align-items:start;}
+aside.toc{position:sticky; top:16px; font-size:12.5px; line-height:1.45;}
+aside.toc h2{font-size:11px; letter-spacing:.07em; text-transform:uppercase; color:var(--muted); font-weight:600; margin:0 0 8px;}
+aside.toc ol{list-style:none; margin:0; padding:0;}
+aside.toc li{margin:0;}
+aside.toc a{display:block; color:var(--ink-2); text-decoration:none; padding:4px 8px; border-left:2px solid transparent;}
+aside.toc a:hover{color:var(--ink); border-left-color:var(--rule);}
+aside.toc a.on{color:var(--accent); border-left-color:var(--accent);}
+aside.toc .pdf{display:inline-block; margin-top:14px; padding:6px 10px; border:1px solid var(--rule); border-radius:6px;
+  color:var(--ink); text-decoration:none; background:var(--surface); font-weight:500;}
+
+article{background:var(--surface); border:1px solid var(--rule); border-radius:10px; box-shadow:var(--shadow);
+  padding:34px 40px 40px; min-width:0;}
+article > header h1{font-size:28px; line-height:1.2; font-weight:700; letter-spacing:-.02em; margin:0 0 8px; text-wrap:balance;}
+.meta{color:var(--muted); font-size:13px; margin:0 0 22px;}
+h2.sec{font-size:21px; font-weight:700; letter-spacing:-.01em; margin:40px 0 10px; padding-top:8px; scroll-margin-top:16px;}
+h3{font-size:16px; font-weight:600; margin:26px 0 6px; scroll-margin-top:16px;}
+p{margin:0 0 14px; max-width:76ch;}
+p.lead b, p b{font-weight:600;}
+.note{border-left:3px solid var(--accent); background:var(--accent-soft); padding:12px 16px; border-radius:0 8px 8px 0;
+  font-size:13.5px; margin:0 0 26px;}
+.note h4{margin:0 0 6px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--accent);}
+.note ul{margin:0; padding-left:18px;} .note li{margin:3px 0;}
+.summary{font-size:15.5px;}
+
+.tscroll{overflow-x:auto; margin:6px 0 18px;}
+table{border-collapse:collapse; width:100%; font-size:13px; line-height:1.45;}
+th{text-align:left; font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); font-weight:600;
+  padding:0 12px 7px 0; border-bottom:1px solid var(--rule); vertical-align:bottom;}
+td{padding:8px 12px 8px 0; border-bottom:1px solid var(--grid); vertical-align:top;}
+tr:last-child td{border-bottom:0;}
+td.n, th.n{text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap;}
+tr.tot td{font-weight:600; border-top:1px solid var(--rule);}
+td.rid{font-family:"IBM Plex Mono",monospace; font-weight:600; color:var(--accent); white-space:nowrap;}
+td.sub{color:var(--ink-2);}
+.wide{min-width:760px;}
+
+figure{margin:10px 0 22px;}
+figure img{display:block; width:100%; height:auto; border-radius:8px; background:#fff; border:1px solid var(--rule);}
+figcaption{font-size:12.5px; color:var(--muted); margin-top:7px;}
+.eq{font-family:"IBM Plex Mono",monospace; font-size:13.5px; background:var(--surface-2); padding:2px 6px; border-radius:4px;}
+.appendix p{font-size:13px; color:var(--ink-2);}
+footer{margin-top:34px; padding-top:14px; border-top:1px solid var(--rule); color:var(--muted); font-size:12px;}
+
+@media (max-width:900px){
+  .layout{grid-template-columns:1fr; gap:16px;}
+  aside.toc{position:static; background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:14px;}
+  article{padding:22px 18px 28px;}
+  article > header h1{font-size:23px;}
+}
+@media print{nav.tabs, aside.toc{display:none} .layout{display:block} article{box-shadow:none; border:0}}
+</style>
+</head>
+<body>
+<nav class="tabs" aria-label="Site">
+  <a href="../dashboard/">Dashboard</a>
+  <a href="./" aria-current="page">Strategy paper</a>
+</nav>
+
+<div class="layout">
+<aside class="toc" aria-label="Contents">
+  <h2>Contents</h2>
+  <ol id="toc">
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#s1">1. The strategy</a></li>
+    <li><a href="#s2">2. Rules</a></li>
+    <li><a href="#s3">3. Why these settings</a></li>
+    <li><a href="#s4">4. Historical backtest</a></li>
+    <li><a href="#s5">5. Forward scenarios</a></li>
+    <li><a href="#s6">6. Weaknesses</a></li>
+    <li><a href="#s7">7. Scenario frequencies</a></li>
+    <li><a href="#s8">8. Horizon robustness</a></li>
+    <li><a href="#s9">9. VIX option pricing</a></li>
+    <li><a href="#s10">10. Short VIX leg: not adopted</a></li>
+    <li><a href="#appendix">Appendix</a></li>
+  </ol>
+  <a class="pdf" href="QQQ_Volatility_Carry_Strategy_v6.pdf" download>Download PDF ↓</a>
+</aside>
+
+<article>
+<header>
+  <h1>A Self-Funding Volatility Hedge on QQQ</h1>
+  <p class="meta">Rolling VIX call spreads funded by monthly QQQ iron condors · Revision 6, September 20, 2026 · Live quotes Sep 17 2026; backtest on QQQ and VIX data 2004–2026. Not investment advice.</p>
+</header>
+
+<div class="note">
+  <h4>How the live bot differs from the paper</h4>
+  <ul>
+    <li><b>Execution.</b> §2.1 describes a manual daily check. The live bot (strategy <span class="mono">qqq-vol-carry-v6</span>) checks four times a day (9:40, 10:45, 13:45, 15:45 ET). New entries are proposed by email and submit only after you approve them with a one-time code. Exits (R3, R5, salvage) submit automatically. An independent watchdog reconciles the account at 11:15 and 16:15.</li>
+    <li><b>Salvage threshold.</b> R5 below says VIX "rose to 25 or above". The backtest engine that produced every number in this paper uses a peak of <b>26</b>, and the bot uses 26 to match the backtest.</li>
+    <li><b>Condor timing.</b> R1 says "on the monthly expiry Friday". The bot sells the next standard monthly expiry once it is 21–38 days out, which is the same contract in practice.</li>
+  </ul>
+</div>
+
+<h2 class="sec" id="summary">Summary</h2>
+<div class="summary">
+<p>The strategy is built for one view: the Nasdaq-100 is likely to fall hard at some point in the next two years (the horizon used throughout is September 2026 to September 2028), the timing is unknown, and the index may run up substantially first. A fixed-strike, fixed-expiry put is a bet on timing as much as direction. This position has neither. It holds a rolling long position in VIX call spreads, which pay on any volatility spike whenever it arrives, and funds their cost by selling a far out-of-the-money QQQ iron condor once a month: a put credit spread 10% below the market and a call credit spread 8% above it, on the same $1,000 of collateral. In calm or rising markets the two credits pay the VIX premium with a small surplus, so the position earns a little while it waits. When the crash comes, the VIX spreads are sold for several times their cost. Two filters govern when the condor may be sold: never when VIX is at or above 25, and never when QQQ is below its 10-month moving average. Those two rules are what keep the position out of the way of the losses that would otherwise occur in the second and third months of a decline.</p>
+<p>The position requires $1,000 of collateral plus about $100 of cash and can be opened for $1,100; $2,300 makes it self-sufficient through the worst modeled month. It has no expiry, re-strikes itself every month, and can run indefinitely. Tested on every 24-month window since January 2004 (248 runs), it averaged <b>+$630 per run</b> on $1,000 of collateral (about 31% a year), was profitable in 91% of runs, and its worst run lost $373. Section 7 puts historical frequencies on each forward scenario, and Section 8 checks that the design choices hold at 12-, 18- and 36-month horizons as well as 24. It earned the most in windows containing a sharp crash (2018, 2020, 2024–25) and stayed positive through the 2008 and 2022 bear markets. Its weaknesses are a slow, spike-free decline, a bursty melt-up that repeatedly breaches the call side, a very low-volatility regime, and a single gap month through the short strike, each covered in Section 6.</p>
+<p><b>What changed in revision 6.</b> Nothing in the rules. Every strike, filter and exit is exactly as in revision 5; the parameter sweep was re-run against the corrected prices and no ranking flipped. What changed is how the VIX options are priced. Revision 5 fitted the VIX future and the volatility skew jointly to call quotes, and that problem is not identified — the two trade off against each other, and the fit settled on a future of 16.5 when spot VIX was 15.44. Put-call parity measures the future directly and without a model: across four strikes at the November expiry it gives 18.68, with a spread between strikes of three cents, and 19.85 at the January expiry. The real curve is in contango and reverts far faster than revision 5 assumed. Correcting it raises what the hedge costs to carry and lowers what a spike pays, so the average run falls from +$769 to +$630 and the worst run from −$60 to −$373. Section 9 sets out the measurement and the one parameter that still cannot be observed. A short VIX call spread on the idle collateral remains tested and not adopted; Section 10 explains why, and the case against it is stronger at these prices.</p>
+</div>
+
+<!-- ============================================================ 1 -->
+<h2 class="sec" id="s1">1. The Strategy</h2>
+<p>The position is a carry pair. Leg A is short QQQ tails on a one-month horizon, mostly the downside tail; Leg B is long S&amp;P 500 volatility on a four-month horizon. The two tails have different shapes. The credit spread only loses if QQQ falls more than roughly 10% inside a single month. The VIX spread pays on any decline sharp enough to push VIX through 30, which historically includes many 6–8% pullbacks that never threaten the short put. There is a wide band of outcomes in which Leg A collects and Leg B costs nothing, and a narrow band, a 10%+ gap in one month, in which both lose. This is not an arbitrage; it is a structure that gets paid for carrying that narrow band of gap risk.</p>
+<figure>
+  <img src="fig-payoff.png" alt="Left: iron condor payoff at expiry, flat +$53 between the short strikes and −$947 beyond either long strike. Right: VIX 25/40 spread market value rising from about $65 at VIX 12 to about $720 at VIX 60, with the sale at VIX 30 and the salvage exit near VIX 22 marked." loading="lazy">
+  <figcaption>Leg A payoff at expiry (left) and Leg B market value at the moment of sale with 2.5 months left (right).</figcaption>
+</figure>
+
+<h3 id="s1-1">1.1 Leg A: the monthly QQQ iron condor</h3>
+<p>Once a month, sell the QQQ put about 10% below the current price and buy the put 10 points lower, and in the same order sell the QQQ call about 8% above the current price and buy the call 10 points higher, all roughly 30 days to expiry. Live quotes for the October 16, 2026 expiry with QQQ at 716:</p>
+<div class="tscroll"><table class="wide">
+<thead><tr><th>Side</th><th>Spread</th><th>Distance OTM</th><th class="n">Short leg</th><th class="n">Long leg</th><th class="n">Credit</th><th class="n">Short-leg delta</th></tr></thead>
+<tbody>
+<tr><td>Put</td><td class="mono">645 / 635</td><td>10% below</td><td class="n">$1.705</td><td class="n">$1.365</td><td class="n">$34</td><td class="n">−0.07</td></tr>
+<tr><td>Call</td><td class="mono">775 / 785</td><td>8% above</td><td class="n">$0.415</td><td class="n">$0.225</td><td class="n">$19</td><td class="n">+0.04</td></tr>
+<tr class="tot"><td>Iron condor</td><td colspan="4" class="sub">Max loss $947, collateral $1,000</td><td class="n">$53</td><td></td></tr>
+</tbody></table></div>
+<p>The credits are small by design. The 10%-OTM put has a delta of about −0.07 and the 8%-OTM call about +0.04, so the market prices a 7% and a 4% chance of each being breached in a month. Because the two spreads cannot both finish in the money, Robinhood holds collateral for one side only: $1,000 for the whole condor, the same as for the put spread alone. The call side therefore adds $19 a month of income at no additional capital. The call strike sits closer than the put strike because QQQ calls carry almost no volatility skew: 8% out on the call side pays roughly what 10% out pays on the put side, while QQQ has closed a month more than 8% higher only about 7% of the time since 2004, almost always in bear-market rallies that the filters exclude. The $53 collected each month funds Leg B with about $19 to spare.</p>
+
+<h3 id="s1-2">1.2 Leg B: the VIX call spread</h3>
+<p>Keep one VIX call spread open at all times: long the 25 call, short the 40 call, about four months to expiry. At VIX 15 it costs roughly $100 and has $1,500 of maximum value. It is not held to settlement. It is sold in the open market on the first day VIX closes at or above 30, at which point a 25/40 spread with two-plus months remaining trades near $4 ($400). At VIX 40 it trades near $9–10, and above 50 it approaches its cap. A new spread is bought when the open one has about a month left, so coverage is continuous and the cost averages about $34 a month, the same as the credit from Leg A. VIX options are cash-settled and European-style; because the spread is sold rather than settled, the Wednesday-morning settlement mechanics never come into play. No collateral is required beyond the debit.</p>
+<p class="sub" style="font-size:13px;color:var(--ink-2)"><i>Section 9 revises the sale values above: at measured prices the 25/40 is worth about $159 at VIX 30 and $269 at VIX 40 with 2.5 months left.</i></p>
+
+<h3 id="s1-3">1.3 How the two legs behave together</h3>
+<p>In a calm month: Leg A collects $53, Leg B costs nothing (a spread was bought this quarter or last), net about +$53, or roughly +$19 a month on a quarterly average once the VIX purchase is counted. In a pullback of 5–8%: VIX usually reaches the high 20s, Leg A survives (QQQ is still above the short strike), and the VIX spread may or may not trigger; if VIX touches 30, Leg B is sold for +$300. In a crash: VIX crosses 30 in the first sharp week, Leg B is sold for $400–900 depending on how far VIX runs, and Leg A, which was sold before the move, either survives (most crashes begin with a 4–6% month) or is closed at a $100–200 loss. Afterwards the filters keep Leg A off until QQQ has stabilized above its 10-month average and VIX is below 25, and Leg B is re-bought once VIX is under 22. In a strong up month: the call side is breached if QQQ rises more than about 8%; it is closed at 3× its credit (about $60) under R3. The result is a position that earns a little in normal times and books a step-up on each spike.</p>
+
+<!-- ============================================================ 2 -->
+<h2 class="sec" id="s2">2. Rules</h2>
+<div class="tscroll"><table class="wide">
+<thead><tr><th>#</th><th style="width:58%">Rule</th><th>Purpose</th></tr></thead>
+<tbody>
+<tr><td class="rid">R1</td><td>On the monthly expiry Friday, sell next month's QQQ iron condor in one order: put side short 10% below spot (rounded to a $5 strike), long 10 points lower; call side short 8% above spot, long 10 points higher; ~30 days to expiry. Skip the put side if its credit is under $0.15 and the call side if under $0.10.</td><td class="sub">Re-strikes both sides every month so a run-up or a decline never leaves stale strikes.</td></tr>
+<tr><td class="rid">R2</td><td>Do not sell the condor (either side) if VIX closed at or above 25 that day, or if QQQ closed below its 10-month (about 200-day) moving average. Leg B continues regardless.</td><td class="sub">Keeps Leg A out of downtrends and elevated-volatility months, where every historical put breach and most of the violent up-months occurred (Section 4).</td></tr>
+<tr><td class="rid">R3</td><td>Close either side of the condor early if its price reaches 3× the credit received for that side, or if QQQ trades within 2% of that short strike. The other side stays open.</td><td class="sub">Caps the ordinary breach at $60–200 rather than the full width.</td></tr>
+<tr><td class="rid">R4</td><td>Keep one VIX 25/40 call spread with at least one month to expiry at all times. Buy a new 4-month spread when the open one has one month left. Do not buy when VIX is 22 or higher.</td><td class="sub">Continuous coverage at about $34/month; avoids paying $250–500 for spreads bought into elevated volatility.</td></tr>
+<tr><td class="rid">R5</td><td>Sell every open VIX spread at market on the first daily close of VIX at or above 30. In addition, if VIX rose to 25 or above<sup>*</sup> and then closes back below 22 without ever reaching 30, sell the spread at market that day (the salvage exit). Do not rest a limit order in place of either.</td><td class="sub">Captures the spike at its real value, and monetises the moderate episodes that never reach 30 instead of letting them decay. Worth +$90 and +$224 a run respectively (Section 3).</td></tr>
+<tr><td class="rid">R6</td><td>After a VIX sale, resume buying spreads only when VIX closes below 22 (R4). Resume selling condors only when VIX is below 25 and QQQ is back above its 10-month average (R2).</td><td class="sub">Avoids re-loading into a decaying spike and avoids selling either side into bear-market rallies.</td></tr>
+<tr><td class="rid">R7</td><td>Let credits accumulate; do not withdraw them. Review the 25 / 30 / 22 thresholds once a year against the prevailing VIX level.</td><td class="sub">Builds the buffer that makes the position self-funding. Thresholds are calibrated to a VIX-15 world.</td></tr>
+</tbody></table></div>
+<p style="font-size:12.5px;color:var(--muted)"><sup>*</sup> The backtest engine and the live bot use a peak of 26 (see the note at the top).</p>
+
+<h3 id="s2-1">2.1 Execution on Robinhood</h3>
+<p>Robinhood does not run conditional rules on its servers. Two things execute unattended: resting good-till-cancelled limit orders and price alerts. Multi-leg option orders are limit-only, so a stop-loss on the condor cannot be a resting order. Earlier revisions leaned on a resting $4.00 limit for the VIX exit; that was a mistake. A 25/40 spread with two and a half months left is worth about $294 at VIX 30 and does not reach $4.00 until VIX is near 35, so the order would have sat unfilled through the moderate episodes and sold late in the severe ones. Every rule is therefore now evaluated by a scheduled daily check that reads QQQ, VIX and open positions and sends a notification with the exact order; each order is reviewed and confirmed before it is placed. In practice this is a 30-second decision a few times a month. The dependency is real: both R3 and R5 rely on the notification being acted on the same evening or next morning. A VIX price alert at 30 and a QQQ alert near the short strike are worth setting as a backstop.</p>
+
+<h3 id="s2-2">2.2 Funding</h3>
+<div class="tscroll"><table class="wide">
+<thead><tr><th>Level</th><th class="n">Amount</th><th>What it covers</th></tr></thead>
+<tbody>
+<tr><td>Minimum to open</td><td class="n">$1,100</td><td class="sub">$1,000 collateral against the condor (one side only) plus about $100 cash for the first VIX spread. The collateral and the VIX debit cannot be the same dollars.</td></tr>
+<tr><td>Recommended</td><td class="n">$1,500</td><td class="sub">Adds a buffer for one or two ordinary breaches ($100–200 each) and a post-crash VIX re-buy at $200–250.</td></tr>
+<tr><td>No new money in any tested path</td><td class="n">$2,300</td><td class="sub">$1,000 collateral, $947 for a full-width gap breach in month one, and about $350 of VIX purchases before credits have accumulated. After about eight normal months the credits fund the VIX purchases on their own.</td></tr>
+</tbody></table></div>
+<p>The $1,000 collateral is the maximum loss on the condor, so a full breach never produces a margin call. It does leave only about $53 of the $1,000, so Leg A pauses until $1,000 is re-posted; that is a continuity question, not a solvency one. Confirm with a reviewed order before the first trade that Robinhood is holding $1,000 for the condor rather than $2,000.</p>
+
+<!-- ============================================================ 3 -->
+<h2 class="sec" id="s3">3. Why These Settings</h2>
+<p>Every parameter was chosen by running the full rule set on the 248 historical windows described in Section 4 and on the forward scenarios in Section 5, then selecting the setting with the best downside profile (10th-percentile and worst-run outcome) rather than the highest average. The reasoning for each follows.</p>
+<p><b>Why 10% out of the money for the credit spread.</b> At today's prices the 10% strike collects $34 a month, which is almost exactly the cost of the VIX sleeve, so the structure is self-funding in a flat market. Further strikes (15%, 20%) collect $13 and $6 and cannot fund the VIX premium; they bleed $20–30 a month and finished $500–900 behind the 10% strike in every calm scenario and every crash-from-here scenario. Closer strikes collect more: the live Oct-16 660/650 spread (8% out) was $0.555 on September 17 against $0.34 for the 645/635. Priced at that live credit, the 8% strike averaged +$692 per 24-month run against +$630 for the 10%, with 3.5 breaches per run against 2.4 and a slightly deeper worst run (−$378 against −$373); a 9% strike is a little better still (+$709, worst −$367). The extra $60–80 a run is inside the error band of a pricing model that has been revised twice; the 9% strike is noted in Section 8 as the natural upgrade once live fills confirm the model, not as a change to make now. The 10% strike is the point where the credit funds the hedge without making Leg A the dominant risk.</p>
+<p><b>Why add a call side, and why 8% out.</b> The put spread alone left the position at roughly zero in flat markets, which is the design goal but leaves nothing to show for two years of work if the crash does not come. A call credit spread on the same expiry uses the same $1,000 of collateral, because only one side of a condor can lose, so its credit is pure incremental income. QQQ calls carry almost no skew, so the 8%-out call pays $19 against $34 for the 10%-out put. Historically the call side, subject to the same two filters, added about $175 per 24-month run (+$455 to +$630) and lifted the share of profitable runs from 82% to 91%; its worst run was shallower than the put side's (−$373 against −$570) because the months in which QQQ rises 8%+ are concentrated in bear-market rallies, which the moving-average filter excludes. Closer call strikes (7%, 5%) pay more but breach several times a run and, at 5%, turn the whole position into a loser. Further strikes (10%) pay $10, too little to clear fees.</p>
+<p><b>Why VIX is not allowed above 25 when selling the credit spread.</b> Volatility clusters. In the historical record, every credit spread that was breached was sold when VIX was already elevated: January 2008, September 2008, January 2022, April 2022, December 2022. The credit on those months is larger, which is the temptation, but the ratio of credit to breach probability is far worse than in a VIX-15 month. Skipping those months (put side alone, no other filter) improved the 10th-percentile run from −$997 to −$370 and the worst run from −$1,674 to −$945 at a slightly higher average; the share of losing runs, about a third, only fell once the moving-average rule was added.</p>
+<p><b>Why QQQ must be above its 10-month moving average.</b> The VIX-25 rule alone still left the two grinding bear markets (2008 and 2022) as losing runs, because in those years VIX sat at 25–35 for a year rather than spiking once, the VIX spread was sold early at 30 for a modest gain, and the credit spreads that the VIX rule did let through were hit by 10%+ months. QQQ spent 10–14 months below its 10-month average in each of those episodes, and every breached credit spread in those years was sold during that stretch. With the full rule set, dropping the moving-average condition cuts the average run from +$630 to +$314, pushes the 10th percentile from +$27 to −$805, and deepens the worst run from −$373 to −$2,060. No other single rule comes close to that; it is the most important line in the strategy and, as Section 8 shows, it is the one whose ranking is most stable across horizons. The cost is two to three months of forgone credit after each dip while QQQ climbs back through the line. A 10-month average was preferred to 6 or 12 months: the 6-month line whipsawed (+$546 mean, 10th percentile −$123) and the 12-month line was a shade behind the 10 (+$625, 10th percentile −$28).</p>
+<p><b>Why the VIX 25/40 spread, four months out.</b> The 25 strike is far enough above the resting level (VIX 13–17) to be cheap, about $100, and close enough that a spike to 30 makes the spread worth four times its cost. A four-month tenor bought every three months keeps coverage continuous with one open spread and one overlapping month, at the lowest premium per month of coverage. Lower strikes (20/35, 22/35) cost two to three times as much and did not recover the extra cost, because most of the payoff comes from the same 30-crossing sale. A higher spread (30/50) is a legitimate alternative but a worse one once the options are priced off the measured futures curve: +$481 against +$630, because a 30-strike call is far out of the money against a two-month future that sits near 25 when spot VIX is 30, so the spread pays little in exactly the moderate episodes that supply most of the sales.</p>
+<p><b>Why the salvage exit exists.</b> Selling only at VIX 30 leaves money in episodes that stop short of it — 2012, 2014, most of 2015–16, 2019, 2023. Adding the rule that a spread is sold once VIX has been above 25 and closes back under 22 raises the average run from +$540 to +$630 and the number of sales per run from about two to three, while the worst run is barely changed. It also has the property that matters most here: it converts the shape the position is otherwise worst at — fear that rises and fades without a crash — from a slow bleed into a small gain. The sale is at market, at whatever the spread is then worth, typically $100–130 against the $98–116 paid.</p>
+<p><b>Why sell at the first close above 30, all at once.</b> Most VIX-30 episodes fade within weeks; only a minority run on to 40 or 50. Selling everything at 30, for about $159 with two and a half months left, captured the reliable part of the payoff. Waiting for 35 raises the average from +$630 to +$673 but pushes the 10th percentile from +$27 to −$87 and doubles the share of losing runs from 9% to 19%, because fewer than half of the 30-crossings went on to 35. Selling half and holding the rest for a bigger spike cut the average by a third. The sale is made at market on the daily check; earlier revisions used a resting $4.00 limit, which Section 9 shows would not have filled.</p>
+<p><b>Why re-buy only below VIX 22.</b> After a sale, VIX usually drifts down over one to three months. A 25/40 spread bought at VIX 24 costs $250–300 and at VIX 28 about $450, and the majority of those spreads expire worthless. Waiting for 22, 20 and 24 are within noise of each other (+$630, +$638, +$631); 22 is kept for continuity. The known cost of this rule is a coverage gap after a sale, which is why 2008's October spike was missed (Section 4.3).</p>
+
+<!-- ============================================================ 4 -->
+<h2 class="sec" id="s4">4. Historical Backtest, 2004–2026</h2>
+<h3 id="s4-1">4.1 Method</h3>
+<p>The full rule set (R1–R7) was run on every 24-month window starting each month from January 2004 through August 2024, 248 runs in total, using actual QQQ monthly closes and weekly lows and actual daily VIX closes. QQQ prices are normalized to today's 715 level at the start of each run so that a 10-point-wide spread and $1,000 of collateral mean the same thing in 2005 as in 2026. Credits are priced off the live September 2026 quotes and scaled with the VIX level at the time. The VIX spread is sold at the value implied by the first daily close at or above 30 in the month, not at the month's peak. A credit spread that touched its short strike intramonth counts as breached even if QQQ recovered by month end. Full assumptions are in the appendix.</p>
+
+<h3 id="s4-2">4.2 Results</h3>
+<figure>
+  <img src="fig-backtest.png" alt="Histogram of final P&amp;L across 248 historical 24-month runs, mostly positive with a long right tail." loading="lazy">
+  <figcaption>Final P&amp;L of every 24-month run, 2004–2026.</figcaption>
+</figure>
+<div class="tscroll"><table>
+<thead><tr><th>Statistic (248 runs of 24 months)</th><th class="n">Value</th><th class="n">On $1,000 collateral</th></tr></thead>
+<tbody>
+<tr><td>Mean final P&amp;L</td><td class="n">+$630</td><td class="n">+63% per 24 months (31%/yr)</td></tr>
+<tr><td>Median</td><td class="n">+$556</td><td class="n">+56% (28%/yr)</td></tr>
+<tr><td>Top quartile</td><td class="n">≥ +$963</td><td class="n">≥ +96%</td></tr>
+<tr><td>Bottom quartile</td><td class="n">≤ +$214</td><td class="n">≤ +21%</td></tr>
+<tr><td>10th percentile</td><td class="n">+$27</td><td class="n">+3%</td></tr>
+<tr><td>Worst run (start Mar 2023)</td><td class="n">−$373</td><td class="n">−37%</td></tr>
+<tr><td>Worst point inside any run (Mar 2025 gap breach)</td><td class="n">−$712</td><td class="n">−71%</td></tr>
+<tr><td>Runs that lost money</td><td class="n">9% (22 of 248)</td><td class="n"></td></tr>
+<tr><td>Best run (start Apr 2024)</td><td class="n">+$2,173</td><td class="n">+217%</td></tr>
+<tr><td>Average per run: condors sold / breaches / VIX sales</td><td class="n">17 / 2.4 / 3.2</td><td class="n"></td></tr>
+<tr><td>Same on the calm-fitted curve, without the stressed anchors (Section 9)</td><td class="n">+$396 mean</td><td class="n">−$510 worst, 15% losing</td></tr>
+</tbody></table></div>
+<p>The distribution is skewed the way a long-volatility position should be: most runs finish positive, the few losing runs are shallow, and the best runs are those containing one or more sharp spikes that recovered. Twenty-two runs of 248 lost money. They cluster in two places: starts in 2004–2006, where a long calm stretch never produced a VIX-30 close and the hedge bled with only the salvage exit to offset it, and starts in 2023, where the window opens with VIX already falling from the 2022 highs so the salvage exit fires early and cheaply while the 2024–25 spikes land after the window closes. The worst lost $373, or 37% of the collateral. Most of the 2.4 breaches per run are call-side breaches closed at 3× a $19 credit, about $60 each; the put side breached about 0.8 times per run.</p>
+
+<h3 id="s4-3">4.3 Named runs</h3>
+<div class="tscroll"><table class="wide">
+<thead><tr><th>Run starts</th><th>Contains</th><th class="n">QQQ over run</th><th class="n">Max drawdown</th><th class="n">Final P&amp;L</th><th>What happened</th></tr></thead>
+<tbody>
+<tr><td>Jan 2004</td><td>2004 grind (−13%, VIX max 19)</td><td class="n">+10%</td><td class="n">−13%</td><td class="n">−$13</td><td class="sub">No VIX-30 close all run. The salvage exit monetised the 2004–05 scares, almost exactly covering the hedge premium. One call breach (Nov-04).</td></tr>
+<tr><td>Oct 2007</td><td>Global financial crisis</td><td class="n">−25%</td><td class="n">−49%</td><td class="n">+$16</td><td class="sub">Two sales, at VIX 31 in Nov-07 and 32 in Sep-08, worth far less at measured prices than revision 5 assumed. One put breach. No position when VIX hit 80 in Oct-08 because R4 blocked re-buys above 22; condors sold in only 3 of 24 months. The clearest case of the re-buy rule costing a run its payoff.</td></tr>
+<tr><td>Jan 2011</td><td>Aug-11 debt-ceiling spike</td><td class="n">+18%</td><td class="n">−11%</td><td class="n">+$616</td><td class="sub">Three sales: the Aug-11 spike at VIX 32 plus two salvage exits. No breaches.</td></tr>
+<tr><td>Sep 2014</td><td>Aug-15 flash crash, Jan-16 selloff</td><td class="n">+21%</td><td class="n">−10%</td><td class="n">+$1,508</td><td class="sub">Seven sales — the Aug-15 spike at VIX 41 and six salvage exits through a long stretch of 20–28 volatility. Three breaches. The clearest illustration of what the salvage rule is for.</td></tr>
+<tr><td>Dec 2017</td><td>Volmageddon, Q4-18</td><td class="n">+36%</td><td class="n">−16%</td><td class="n">+$430</td><td class="sub">Three sales (VIX 37 in Feb-18, then Dec-18). One put breach (Oct-18), one call breach (Apr-19). The Covid spike falls just outside a 24-month window.</td></tr>
+<tr><td>Jan 2020</td><td>Covid crash, 2021 melt-up</td><td class="n">+63%</td><td class="n">−16%</td><td class="n">+$904</td><td class="sub">Five sales, the largest at VIX 39 in Feb-20. Five breaches: two puts (Feb-20, Jan-22) and three calls in the 2020–21 rally.</td></tr>
+<tr><td>Nov 2021</td><td>2022 bear market</td><td class="n">+2%</td><td class="n">−33%</td><td class="n">−$102</td><td class="sub">Five sales at VIX 31–34 plus salvage exits in late 2022 and early 2023, but four call breaches in the 2023 rally cost more than the sales made. Condors off for most of 2022.</td></tr>
+<tr><td>Dec 2023</td><td>Aug-24 yen-carry unwind, Apr-25 tariff crash</td><td class="n">+50%</td><td class="n">−19%</td><td class="n">+$370</td><td class="sub">Six sales including VIX 39 in Aug-24; one full-width put breach in Mar-25 from a gap month that began above the moving average, plus two call breaches.</td></tr>
+</tbody></table></div>
+
+<h3 id="s4-4">4.4 When does QQQ fall without a VIX spike?</h3>
+<p>Because Leg B only pays when VIX crosses 30, it matters how often a meaningful decline happens without one. Every QQQ drawdown of 10% or more from a trailing six-month high since 2004:</p>
+<div class="tscroll"><table class="wide mono" style="font-size:12px">
+<thead><tr><th>Peak</th><th>Trough</th><th class="n">Weeks</th><th class="n">QQQ drawdown</th><th class="n">Max VIX close</th><th class="n">Max VIX intraday</th><th class="n">Worst 4 weeks</th><th>VIX ≥ 30?</th></tr></thead>
+<tbody>
+<tr><td>2004-01-12</td><td>2004-08-09</td><td class="n">26</td><td class="n">−15.7%</td><td class="n">19.3</td><td class="n">22.7</td><td class="n">−11.1%</td><td>no</td></tr>
+<tr><td>2004-11-29</td><td>2005-04-11</td><td class="n">17</td><td class="n">−13.4%</td><td class="n">17.7</td><td class="n">18.1</td><td class="n">−7.1%</td><td>no</td></tr>
+<tr><td>2006-01-09</td><td>2006-07-17</td><td class="n">24</td><td class="n">−16.9%</td><td class="n">18.1</td><td class="n">23.8</td><td class="n">−9.6%</td><td>no</td></tr>
+<tr><td>2007-10-29</td><td>2009-03-02</td><td class="n">64</td><td class="n">−51.7%</td><td class="n">79.1</td><td class="n">89.5</td><td class="n">−27.9%</td><td>yes</td></tr>
+<tr><td>2010-04-19</td><td>2010-06-28</td><td class="n">9</td><td class="n">−15.9%</td><td class="n">41.0</td><td class="n">48.2</td><td class="n">−11.2%</td><td>yes</td></tr>
+<tr><td>2011-07-18</td><td>2011-08-15</td><td class="n">4</td><td class="n">−16.1%</td><td class="n">43.0</td><td class="n">48.0</td><td class="n">−16.1%</td><td>yes</td></tr>
+<tr><td>2012-04-02</td><td>2012-05-14</td><td class="n">6</td><td class="n">−10.2%</td><td class="n">25.1</td><td class="n">25.1</td><td class="n">−7.4%</td><td>no</td></tr>
+<tr><td>2012-09-10</td><td>2012-11-12</td><td class="n">8</td><td class="n">−11.2%</td><td class="n">18.6</td><td class="n">19.6</td><td class="n">−8.0%</td><td>no</td></tr>
+<tr><td>2015-07-13</td><td>2015-08-31</td><td class="n">7</td><td class="n">−10.1%</td><td class="n">28.0</td><td class="n">53.3</td><td class="n">−7.8%</td><td>no</td></tr>
+<tr><td>2015-11-30</td><td>2016-02-08</td><td class="n">9</td><td class="n">−14.9%</td><td class="n">27.0</td><td class="n">30.9</td><td class="n">−12.3%</td><td>no</td></tr>
+<tr><td>2018-08-27</td><td>2018-12-17</td><td class="n">15</td><td class="n">−20.9%</td><td class="n">30.1</td><td class="n">31.4</td><td class="n">−10.3%</td><td>yes</td></tr>
+<tr><td>2020-02-10</td><td>2020-03-16</td><td class="n">4</td><td class="n">−27.3%</td><td class="n">66.0</td><td class="n">85.5</td><td class="n">−27.3%</td><td>yes</td></tr>
+<tr><td>2021-11-15</td><td>2022-10-10</td><td class="n">41</td><td class="n">−35.5%</td><td class="n">33.4</td><td class="n">38.9</td><td class="n">−14.7%</td><td>yes</td></tr>
+<tr><td>2025-02-10</td><td>2025-03-31</td><td class="n">6</td><td class="n">−21.5%</td><td class="n">45.3</td><td class="n">45.6</td><td class="n">−14.1%</td><td>yes</td></tr>
+<tr><td>2025-10-27</td><td>2026-03-23</td><td class="n">19</td><td class="n">−10.6%</td><td class="n">31.1</td><td class="n">35.3</td><td class="n">−7.4%</td><td>yes</td></tr>
+</tbody></table></div>
+<p>Fifteen episodes. Seven, all between 10% and 17% deep, never produced a VIX close above 30: the 2004 and 2006 grinds (VIX topped at 18–19), two in 2012, and 2015–16 (27–28). Every decline of 20% or more did produce one, although 2018 and 2022 only barely. So the spike-free decline happens roughly once every three years, but only at moderate depth. In those episodes the position loses the VIX premium for the duration, a few hundred dollars, and the moving-average filter keeps Leg A from making it worse.</p>
+
+<!-- ============================================================ 5 -->
+<h2 class="sec" id="s5">5. Forward Scenarios, September 2026 to September 2028</h2>
+<p>Deterministic monthly paths for QQQ, with VIX derived from each path (15 plus 0.6 times the drawdown percentage, plus a spike equal to 1.8 times any down month's size, decaying by half each month). All rules including both filters apply. Values are cumulative P&amp;L in dollars and as a percentage of the $1,000 collateral, and annualized: the total return multiplied by 12 and divided by the number of months the position was actually deployed (a 5% return earned in six months is 10% a year). Months deployed runs to the position's last cash flow. In the calm paths that is the full 24 months. In the crash paths the VIX spread is sold, QQQ then sits below its 10-month average with VIX above 22, the rules keep both legs switched off, and the collateral is idle and free to redeploy, so a path that pays out in eight months is annualized over eight. The very high figures for the early crashes should be read as a rate on capital while it was at work, not as a repeatable yearly return; nothing in the model says a second crash follows the first.</p>
+<figure>
+  <img src="fig-scenarios.png" alt="Cumulative P&amp;L paths for eight no-crash scenarios (left) and seven crash scenarios (right), September 2026 to September 2028." loading="lazy">
+  <figcaption>Modeled forward scenarios, full rule set.</figcaption>
+</figure>
+<p><b>No-crash paths.</b> The first eight rows have no VIX spike; the three bursty melt-ups stress the call side of the condor.</p>
+<div class="tscroll"><table class="wide">
+<thead><tr><th>Scenario</th><th class="n">Final P&amp;L</th><th class="n">% of $1,000</th><th class="n">Months deployed</th><th class="n">Annualized</th><th class="n">Worst point</th><th class="n">Condors</th><th class="n">Breaches</th><th class="n">VIX sales</th></tr></thead>
+<tbody>
+<tr><td>Flat 715</td><td class="n">+$375</td><td class="n">+38%</td><td class="n">24</td><td class="n">+19%</td><td class="n">−$100</td><td class="n">24</td><td class="n">0</td><td class="n">0</td></tr>
+<tr><td>Steady melt-up to 900</td><td class="n">+$249</td><td class="n">+25%</td><td class="n">24</td><td class="n">+12%</td><td class="n">−$100</td><td class="n">24</td><td class="n">0</td><td class="n">0</td></tr>
+<tr><td>Steady melt-up to 1000</td><td class="n">+$249</td><td class="n">+25%</td><td class="n">24</td><td class="n">+12%</td><td class="n">−$100</td><td class="n">24</td><td class="n">0</td><td class="n">0</td></tr>
+<tr><td>Bursty melt-up to ~1000 (+6.5% every 3rd mo)</td><td class="n">−$171</td><td class="n">−17%</td><td class="n">24</td><td class="n">−9%</td><td class="n">−$252</td><td class="n">22</td><td class="n">7</td><td class="n">0</td></tr>
+<tr><td>Bursty melt-up to ~1275 (+6% every other mo)</td><td class="n">−$264</td><td class="n">−26%</td><td class="n">24</td><td class="n">−13%</td><td class="n">−$346</td><td class="n">23</td><td class="n">8</td><td class="n">0</td></tr>
+<tr><td>Violent melt-up to ~1400 (+11% every 3rd mo)</td><td class="n">−$591</td><td class="n">−59%</td><td class="n">24</td><td class="n">−30%</td><td class="n">−$612</td><td class="n">22</td><td class="n">7</td><td class="n">0</td></tr>
+<tr><td>Noisy flat (±3%/mo)</td><td class="n">+$10</td><td class="n">+1%</td><td class="n">23</td><td class="n">+1%</td><td class="n">−$112</td><td class="n">12</td><td class="n">0</td><td class="n">0</td></tr>
+<tr><td>Slow grind to 600 (no spike)</td><td class="n">−$493</td><td class="n">−49%</td><td class="n">12</td><td class="n">−49%</td><td class="n">−$493</td><td class="n">1</td><td class="n">0</td><td class="n">0</td></tr>
+</tbody></table></div>
+<p><b>Crash paths.</b> Months deployed is the month of the VIX sale (or of the last credit collected); after it the position is idle under the rules.</p>
+<div class="tscroll"><table class="wide">
+<thead><tr><th>Scenario</th><th class="n">Final P&amp;L</th><th class="n">% of $1,000</th><th class="n">Months deployed</th><th class="n">Annualized</th><th class="n">Worst point</th><th class="n">Condors</th><th class="n">Breaches</th><th class="n">VIX sales</th></tr></thead>
+<tbody>
+<tr><td>Choppy (three 11% dips)</td><td class="n">+$1,961</td><td class="n">+196%</td><td class="n">24</td><td class="n">+98%</td><td class="n">−$100</td><td class="n">17</td><td class="n">2</td><td class="n">4</td></tr>
+<tr><td>Early crash Dec-26 (to 580)</td><td class="n">+$981</td><td class="n">+98%</td><td class="n">4</td><td class="n">+294%</td><td class="n">−$100</td><td class="n">3</td><td class="n">0</td><td class="n">1</td></tr>
+<tr><td>Sudden crash (−10% first month)</td><td class="n">+$206</td><td class="n">+21%</td><td class="n">8</td><td class="n">+31%</td><td class="n">−$100</td><td class="n">8</td><td class="n">1</td><td class="n">1</td></tr>
+<tr><td>Middle crash Sep-27 (to 580)</td><td class="n">+$1,201</td><td class="n">+120%</td><td class="n">13</td><td class="n">+111%</td><td class="n">−$100</td><td class="n">12</td><td class="n">0</td><td class="n">1</td></tr>
+<tr><td>Late crash Mar-28 (to 580)</td><td class="n">+$1,294</td><td class="n">+129%</td><td class="n">19</td><td class="n">+82%</td><td class="n">−$100</td><td class="n">18</td><td class="n">0</td><td class="n">1</td></tr>
+<tr><td>Melt-up 830 then crash to 600</td><td class="n">+$546</td><td class="n">+55%</td><td class="n">11</td><td class="n">+60%</td><td class="n">−$100</td><td class="n">10</td><td class="n">0</td><td class="n">1</td></tr>
+<tr><td>Deep crash Sep-27 (to 500)</td><td class="n">+$1,433</td><td class="n">+143%</td><td class="n">13</td><td class="n">+132%</td><td class="n">−$100</td><td class="n">12</td><td class="n">0</td><td class="n">1</td></tr>
+</tbody></table></div>
+<p>The flat path finishes at +$375, about 19% a year on the collateral, from the condor surplus over the VIX premium. The steady melt-ups finish lower, at +$249, because a rising market walks the 8% call strike closer with every re-strike while the hedge still has to be carried; the melt-up to 1,000 is identical to the melt-up to 900 because no single month approaches the strike. Every crash path finishes well ahead, between +$206 and +$1,433. The choppy path is the outlier at +$1,961 because it monetizes three separate spikes and keeps collecting afterwards. Note that the calm paths are now worth less than in revision 5 and the crash paths more: measured prices make the hedge dearer to carry but, blended to the observed 2008 and 2020 curves, a genuine spike pays better than the calm-fitted extrapolation allowed.</p>
+<p><b>The bursty melt-ups.</b> What hurts the call side is not the size of the rise but its lumpiness. A month of roughly +6% or more from above trend closes above 98% of the short call strike and is bought back at three times its credit (about −$45 to −$60 including the forgone credit); above +10% the cost is six times credit. At +6.5% every third month (seven breaches in 24 months, QQQ to 1,000) the position loses $171. At +6% every other month (QQQ to 1,275) it loses $264, and at +11% every third month (QQQ to 1,400, a 1999-type run) it loses $591 — now the worst no-crash outcome of all, deeper than the slow grind. VIX stays at 13–18 on all three paths, so Leg B never pays. For scale, since 2004 QQQ has had 20 months of +5.5% or more while it was above its 10-month average with VIX under 25, about one in ten eligible months, and the most in any 24-month window was five (the window ending August 2024). These paths assume seven or eight; they are a stress test beyond the record, not a base case. Removing the call side entirely fixes them but, historically, cuts the mean run from +$630 to +$455 while raising the share of losing runs from 9% to 18%. A 10%-OTM call side is in between (+$588, 12% losing). The 8% call side is kept because the record favors it; the bursty melt-up is the price, and it is listed in Section 6.</p>
+<p>The negative rows are the honest cost of the moving-average filter. In the slow grind to 600, QQQ slips below its average in the first month and never recovers it; Leg A sells one condor and is then off for the duration, Leg B is bought repeatedly at a rising cost and never reaches either exit because VIX tops out in the mid-20s only briefly, and the position is idle from month 12 with a loss of $493. The noisy flat path, which lost money in every previous revision, is marginally positive here at +$10: only 12 of 24 condors are sold, but the salvage exit monetises the repeated scares.</p>
+
+<!-- ============================================================ 6 -->
+<h2 class="sec" id="s6">6. Weaknesses</h2>
+<div class="tscroll"><table class="wide">
+<thead><tr><th style="width:24%">Risk</th><th style="width:18%">Size</th><th>Comment</th></tr></thead>
+<tbody>
+<tr><td>Slow, spike-free decline (2004, 2006, 2012 type)</td><td>−$100 to −$500 over two years</td><td class="sub">The one shape the structure does nothing for. VIX never reaches 30, so Leg B expires worthless, and the moving-average filter switches Leg A off for the duration. Historically these declines have been 10–17% deep and have occurred about once every three years.</td></tr>
+<tr><td>Melt-up month of 6%+ from above the average (Nov 2023, Apr 2020 type)</td><td>−$45 to −$120 per event; −$947 on a 13%+ month</td><td class="sub">The call side is breached and closed at 3× credit under R3 (6× above +10%). About one in ten eligible months since 2004 was this large; at most five occurred in any 24-month window. The full-width case has not occurred from above trend with VIX under 25.</td></tr>
+<tr><td>Bursty melt-up: repeated 6%+ months with no volatility (1999 type)</td><td>−$170 to −$590 over two years</td><td class="sub">Seven or eight call-side breaches in 24 months cost $171 (at +6.5% every third month) to $591 (at +11% every third month). At measured prices this is now the deepest no-crash loss, ahead of the slow grind, while VIX stays under 20 and Leg B pays nothing. Requires roughly twice the worst historical breach frequency. Mitigation if it begins: move the call side to 10% OTM or drop it; the put side and Leg B are unaffected.</td></tr>
+<tr><td>Noisy sideways market that keeps crossing the average</td><td>−$200 to −$600</td><td class="sub">Each cross below the 10-month line costs a month or two of credits. A market that oscillates around its average for a year is the filter's worst case.</td></tr>
+<tr><td>Gap month through the short strike from a calm start (Feb 2020, Mar 2025)</td><td>−$966 in one month</td><td class="sub">Cannot be filtered: the filters only see the prior close. The $2,300 funding level absorbs it. One such event occurred in the 22-year record while a spread was open.</td></tr>
+<tr><td>Coverage gap after a VIX sale</td><td>Missed second spike</td><td class="sub">R6 waits for VIX below 22 to re-buy. In 2008 this meant no VIX position during the October spike to 80. Re-buying earlier was tested and lost money on average, but the gap is real.</td></tr>
+<tr><td>Very low-volatility regime (2017: VIX 10–12)</td><td>−$100 to −$200 per year</td><td class="sub">Credits shrink to $15–20 a month while VIX spreads stay around $65. A mild bleed until volatility normalizes.</td></tr>
+<tr><td>Sustained high-volatility regime (2022: VIX 25–35 for a year)</td><td>Reduced income</td><td class="sub">Both filters keep Leg A off for months; Leg B is sold early at 30 for modest gains. The position was positive in 2022 but well below its crash-year results.</td></tr>
+<tr><td>Model error in VIX-spread values</td><td>−35% a sale if the stressed anchors are wrong</td><td class="sub">The futures curve is now measured by put-call parity rather than fitted, so its level is not in doubt. What remains unobservable is how far the curve inverts during a spike, since a calm curve carries no information about that. Anchoring to the observed 2008 and 2020 curves gives +$630 a run; using the calm-fitted reversion unadjusted gives +$396. Verify at the first sale.</td></tr>
+<tr><td>Execution dependence</td><td>Both R3 and R5 need same-day action</td><td class="sub">Nothing rests on the server any more (Section 2.1). The daily check must be acted on the evening it fires, or the next morning, for both the condor stop-loss and the VIX exit. Price alerts at VIX 30 and near the short strike are the backstop.</td></tr>
+<tr><td>Call-side breach count understated in the backtest</td><td>Modest</td><td class="sub">The historical data has monthly closes and weekly lows but not weekly highs, so intramonth touches of the call strike are not fully counted. The true call-side breach rate is somewhat above the 1.6 per run measured.</td></tr>
+<tr><td>Early assignment on the short QQQ put</td><td>Operational</td><td class="sub">QQQ options are American-style. Assignment of a 10%-OTM put is rare and the long put caps the loss. Close rather than hold through expiry if the short strike is in the money.</td></tr>
+</tbody></table></div>
+<p>Taken together: the structure is designed for a market that either does nothing or breaks sharply, and it is indifferent to when the break comes. Its blind spot is the market that erodes slowly without fear. If the coming decline takes that shape, this position will lose a few hundred dollars over two years and a long-dated put spread would have been the right instrument instead. Its second blind spot is a bubble that inflates in lurches: repeated +6% months with no fear cost the call side $45–60 each, and a 1999-style run of them would lose $400–600 while waiting for the top — at corrected prices, the worst no-crash outcome of any scenario tested.</p>
+
+<!-- ============================================================ 7 -->
+<h2 class="sec" id="s7">7. How Often Has Each Scenario Happened?</h2>
+<p>The forward scenarios in Section 5 are shapes, not forecasts. To attach a probability to each, every rolling 24-month window since 1993 was classified into one of ten shapes using the same features the strategy responds to: the largest drawdown inside the window, how many separate VIX-30 episodes it contained, whether the market recovered, how far it rose, and how many months were large enough to breach the call side. The classification is mechanical (rules in the appendix) and the model scenarios were run through the same rules to confirm they land where their names say. Four lookbacks are shown: 2004–2026 is the period with real QQQ and VIX data and is the one the strategy P&amp;L is attached to; 2010–2026 and 2016–2026 show how the mix has shifted; 1993–2026 adds the dot-com run-up and bust using Nasdaq-100 prices from Robinhood and, before July 2002, a VIX proxy built from realized volatility (fitted on 2004–2026, R² 0.52). The proxy catches the large spikes but misses brief ones such as October 1997, so the 1993–2003 spike counts are approximate and lean toward "spike-free".</p>
+<figure>
+  <img src="fig-shapes.png" alt="Share of 24-month windows in each historical shape across four lookback periods." loading="lazy">
+  <figcaption>Historical frequency of each 24-month shape.</figcaption>
+</figure>
+
+<h3 id="s7-1">7.1 Shape frequencies and what the strategy earned in each</h3>
+<div class="tscroll"><table class="wide">
+<thead><tr><th>Historical shape (24-month window)</th><th class="n">1993–26*</th><th class="n">2004–26</th><th class="n">2010–26</th><th class="n">2016–26</th><th class="n">Episodes (2004–26)</th><th>Strategy P&amp;L, 2004–26: mean / worst</th></tr></thead>
+<tbody>
+<tr><td>Flat / mild drift</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">0</td><td class="sub">never occurred</td></tr>
+<tr><td>Noisy flat (3+ MA crossings)</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">0</td><td class="sub">never occurred</td></tr>
+<tr><td>Steady melt-up (20%+, no big months)</td><td class="n">8%</td><td class="n">9%</td><td class="n">13%</td><td class="n">1%</td><td class="n">2</td><td>+$257 / +$58 (n=23)</td></tr>
+<tr><td>Bursty melt-up (4+ call-breach months)</td><td class="n">2%</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">0</td><td class="sub">never occurred</td></tr>
+<tr><td>Spike-free dip 10–18%, recovered</td><td class="n">19%</td><td class="n">8%</td><td class="n">0%</td><td class="n">0%</td><td class="n">1</td><td>−$77 / −$151 (n=19)</td></tr>
+<tr><td>Spike-free decline, not recovered (slow grind)</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">0</td><td class="sub">never occurred</td></tr>
+<tr><td>One VIX-30 spike, dip under 18%</td><td class="n">19%</td><td class="n">25%</td><td class="n">33%</td><td class="n">14%</td><td class="n">6</td><td>+$820 / +$46 (n=61)</td></tr>
+<tr><td>Choppy: two or more VIX-30 spikes, dips under 18%</td><td class="n">19%</td><td class="n">29%</td><td class="n">30%</td><td class="n">44%</td><td class="n">5</td><td>+$864 / +$22 (n=71)</td></tr>
+<tr><td>Crash (18%+) from near the start level</td><td class="n">12%</td><td class="n">9%</td><td class="n">6%</td><td class="n">10%</td><td class="n">6</td><td>+$313 / −$102 (n=22)</td></tr>
+<tr><td>Crash (18%+) after a melt-up of 10%+</td><td class="n">21%</td><td class="n">21%</td><td class="n">18%</td><td class="n">31%</td><td class="n">6</td><td>+$647 / −$373 (n=52)</td></tr>
+</tbody></table></div>
+<p style="font-size:12.5px;color:var(--muted)">* Windows starting 1993–2003 use the VIX proxy. "Episodes" counts separate runs of consecutive start months that fall in the shape, which is closer to an independent sample size than the window count: 248 overlapping windows since 2004 contain about eleven independent two-year periods, so every percentage here has wide error bars.</p>
+<p>Three things stand out. First, the calm scenarios have essentially never happened. A VIX close at or above 30 occurred inside 83% of 24-month windows since 2004 (66% of 12-month windows, 94% of 36-month windows), and the 17% of windows without one were all rising markets. A two-year stretch in which QQQ drifts sideways with VIX at 15 the whole time, the "Flat 715" baseline, has no historical instance since 1993, and neither does the noisy flat or the spike-free slow grind that never recovers. The 2000–2002 and 2022 declines both came with repeated spikes. The two scenarios in which the position loses the most are therefore also the two with the thinnest historical support; that is a reason for comfort, not for dismissing them, since eleven independent periods cannot rule out a shape that happened in 2004–2006 at smaller size (the spike-free 10–18% dip, 8% of windows, in which the position lost $77 on average, the only historical shape that loses).</p>
+<p>Second, the common shapes are the ones the position is built for. More than half of all windows since 2004 (54%) contained one or more VIX-30 spikes with no drawdown deeper than 18%: the 2010, 2011, 2015, 2018, 2024 and 2025 episodes. These are the strategy's best environments, +$820 on average with one spike and +$864 with two or more, and since 2016 they make up 59% of windows. Third, crashes of 18% or more appeared in 30% of windows since 2004 (33% since 1993), and in seven of every ten of them QQQ first rose 10% or more from the window's start, which is the melt-up-then-crash shape and the one closest to the thesis behind this position. The position earned +$647 on average in those windows. Crashes that began from near the starting level earned +$313, because in the historical instances (late 2007, early 2008, late 2021) VIX was already elevated when the window opened, the first spread was bought dear or the re-buy rule kept the position out of the largest spike, and the condors were filtered off for months.</p>
+
+<h3 id="s7-2">7.2 Probability of each forward scenario</h3>
+<p>Each forward scenario from Section 5 mapped to its historical shape, with the share of 24-month windows in that shape over each lookback. For the crash scenarios the share is further split by the feature that defines the scenario: the month in which the drawdown first reached 18% (early: months 1–6; middle: 7–15; late: 16–24), whether the crash contained a single month of −10% or worse, and whether it went beyond 30%. These sub-features overlap, so the crash rows do not sum to the crash total.</p>
+<div class="tscroll"><table class="wide">
+<thead><tr><th>Forward scenario</th><th>Historical shape</th><th class="n">1993–26*</th><th class="n">2004–26</th><th class="n">2010–26</th><th class="n">2016–26</th><th class="n">Model P&amp;L</th><th>Historical P&amp;L in shape</th></tr></thead>
+<tbody>
+<tr><td>Flat 715</td><td class="sub">Flat, no spike</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">+$375</td><td class="sub">no instance</td></tr>
+<tr><td>Steady melt-up to 900 / 1000</td><td class="sub">Steady melt-up 20%+</td><td class="n">8%</td><td class="n">9%</td><td class="n">13%</td><td class="n">1%</td><td class="n">+$249</td><td>+$257 / +$58 (n=23)</td></tr>
+<tr><td>Bursty melt-ups (three variants)</td><td class="sub">Bursty melt-up</td><td class="n">2%</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">−$171 to −$591</td><td class="sub">no instance</td></tr>
+<tr><td>Noisy flat (±3%/mo)</td><td class="sub">Noisy flat, no spike</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">+$10</td><td class="sub">no instance</td></tr>
+<tr><td>Slow grind to 600 (no spike)</td><td class="sub">Slow grind, not recovered</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">−$493</td><td class="sub">no instance</td></tr>
+<tr><td class="sub">(no forward scenario)</td><td class="sub">Spike-free dip, recovered</td><td class="n">19%</td><td class="n">8%</td><td class="n">0%</td><td class="n">0%</td><td class="n">n/a</td><td>−$77 / −$151 (n=19)</td></tr>
+<tr><td class="sub">(no forward scenario)</td><td class="sub">One spike, dip under 18%</td><td class="n">19%</td><td class="n">25%</td><td class="n">33%</td><td class="n">14%</td><td class="n">n/a</td><td>+$820 / +$46 (n=61)</td></tr>
+<tr><td>Choppy (three 11% dips)</td><td class="sub">2+ spikes, dips under 18%</td><td class="n">19%</td><td class="n">29%</td><td class="n">30%</td><td class="n">44%</td><td class="n">+$1,961</td><td>+$864 / +$22 (n=71)</td></tr>
+<tr><td>Early crash Dec-26 (to 580)</td><td class="sub">Crash from start, early (months 1–6)</td><td class="n">10%</td><td class="n">6%</td><td class="n">3%</td><td class="n">6%</td><td class="n">+$981</td><td>+$313 / −$102 (n=22)</td></tr>
+<tr><td>Sudden crash (−10% first month)</td><td class="sub">Crash from start, with a −10% month</td><td class="n">12%</td><td class="n">9%</td><td class="n">6%</td><td class="n">10%</td><td class="n">+$206</td><td>+$313 / −$102 (n=22)</td></tr>
+<tr><td>Middle crash Sep-27 (to 580)</td><td class="sub">Crash from start, middle (7–15)</td><td class="n">2%</td><td class="n">3%</td><td class="n">2%</td><td class="n">4%</td><td class="n">+$1,201</td><td>+$313 / −$102 (n=22)</td></tr>
+<tr><td>Late crash Mar-28 (to 580)</td><td class="sub">Crash from start, late (16–24)</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">0%</td><td class="n">+$1,294</td><td>+$313 / −$102 (n=22)</td></tr>
+<tr><td>Deep crash Sep-27 (to 500)</td><td class="sub">Crash from start, 30%+ deep</td><td class="n">10%</td><td class="n">6%</td><td class="n">3%</td><td class="n">5%</td><td class="n">+$1,433</td><td>+$313 / −$102 (n=22)</td></tr>
+<tr><td>Melt-up 830 then crash to 600</td><td class="sub">Crash after 10%+ melt-up</td><td class="n">21%</td><td class="n">21%</td><td class="n">18%</td><td class="n">31%</td><td class="n">+$546</td><td>+$647 / −$373 (n=52)</td></tr>
+</tbody></table></div>
+<p>Reading the table: the crash scenarios as a group are the likeliest of the named shapes (about 30% of windows), and within them the melt-up-first version is the single most common, at one window in five. The steady melt-up is next at about one in ten. The largest remaining gaps between the deterministic paths and history are the choppy path, where three evenly spaced 11% dips pay +$1,961 against +$864 for real choppy windows, and the crash-from-start scenarios, where the deterministic VIX path spikes more cleanly than the messy elevated-VIX episodes of late 2007 and 2021 that make up the historical set. A "late crash from the starting level" never occurred: a market that has not fallen in 16 months has always risen enough to be classed as a melt-up first.</p>
+<p>Weighting each shape's historical P&amp;L by its 2004–2026 frequency reproduces the unconditional average of +$630 by construction. Weighting by the 1993–2026 mix — which contains the dot-com bust, the one bursty melt-up on record and a far higher share of spike-free dips — gives roughly +$480. The position's expected result is not very sensitive to which lookback one believes; what changes is the tail, which depends on the two shapes that have not yet occurred.</p>
+
+<!-- ============================================================ 8 -->
+<h2 class="sec" id="s8">8. Horizon Robustness: Are the Filters Fitted to 24 Months?</h2>
+<p>The 24-month horizon matches the thesis, but a design choice that only wins at 24 months would be fitted to the window rather than to the market. Every rolling-window backtest was therefore repeated at 12, 18 and 36 months for the base rules and for each alternative that was considered in Section 3. The table shows mean P&amp;L per month deployed (so horizons are comparable), the 10th-percentile run and the share of losing runs.</p>
+<div class="tscroll"><table class="wide">
+<thead><tr><th>Variant</th><th class="n">12 mo<br>$/mo · p10 · losing</th><th class="n">18 mo</th><th class="n">24 mo</th><th class="n">36 mo</th></tr></thead>
+<tbody>
+<tr class="tot"><td>Base (10% put, 8% call, MA, 25/40, VIX-30 + salvage)</td><td class="n">$23 · −$72 · 21%</td><td class="n">$25 · −$27 · 15%</td><td class="n">$26 · +$27 · 9%</td><td class="n">$27 · +$213 · 4%</td></tr>
+<tr><td>No MA filter</td><td class="n">$9 · −$816 · 26%</td><td class="n">$11 · −$799 · 27%</td><td class="n">$13 · −$805 · 23%</td><td class="n">$14 · −$1,075 · 30%</td></tr>
+<tr><td>No call side</td><td class="n">$15 · −$149 · 41%</td><td class="n">$18 · −$176 · 30%</td><td class="n">$19 · −$187 · 18%</td><td class="n">$20 · +$0 · 10%</td></tr>
+<tr><td>Call 10% OTM</td><td class="n">$21 · −$93 · 27%</td><td class="n">$23 · −$77 · 19%</td><td class="n">$25 · −$53 · 12%</td><td class="n">$25 · +$210 · 6%</td></tr>
+<tr><td>Call 7% OTM</td><td class="n">$22 · −$87 · 25%</td><td class="n">$24 · −$47 · 18%</td><td class="n">$25 · −$33 · 14%</td><td class="n">$26 · +$68 · 8%</td></tr>
+<tr><td>Put 8% OTM</td><td class="n">$24 · −$146 · 19%</td><td class="n">$27 · −$34 · 12%</td><td class="n">$29 · +$48 · 8%</td><td class="n">$30 · +$289 · 4%</td></tr>
+<tr><td>Put 15% OTM</td><td class="n">$11 · −$231 · 47%</td><td class="n">$14 · −$292 · 39%</td><td class="n">$15 · −$274 · 31%</td><td class="n">$16 · −$267 · 19%</td></tr>
+<tr><td>VIX 30/50</td><td class="n">$17 · −$29 · 16%</td><td class="n">$19 · +$4 · 8%</td><td class="n">$20 · +$71 · 4%</td><td class="n">$21 · +$141 · 4%</td></tr>
+<tr><td>Sell trigger 35</td><td class="n">$22 · −$138 · 30%</td><td class="n">$26 · −$105 · 25%</td><td class="n">$28 · −$87 · 19%</td><td class="n">$29 · +$0 · 10%</td></tr>
+<tr><td>No salvage exit</td><td class="n">$18 · −$113 · 23%</td><td class="n">$21 · −$82 · 23%</td><td class="n">$23 · −$56 · 15%</td><td class="n">$25 · +$128 · 4%</td></tr>
+<tr><td>Resting $4.00 GTC limit (revisions 1–4)</td><td class="n">$14 · −$118 · 22%</td><td class="n">$15 · −$91 · 21%</td><td class="n">$17 · −$58 · 15%</td><td class="n">$19 · +$163 · 6%</td></tr>
+<tr><td>Re-buy &lt; 20</td><td class="n">$23 · −$73 · 23%</td><td class="n">$25 · −$43 · 16%</td><td class="n">$27 · −$13 · 12%</td><td class="n">$27 · +$281 · 4%</td></tr>
+<tr><td>Re-buy &lt; 24</td><td class="n">$23 · −$66 · 19%</td><td class="n">$25 · −$28 · 13%</td><td class="n">$26 · +$50 · 9%</td><td class="n">$27 · +$269 · 4%</td></tr>
+<tr><td>Skip VIX ≥ 22</td><td class="n">$21 · −$78 · 24%</td><td class="n">$23 · −$44 · 20%</td><td class="n">$25 · −$16 · 13%</td><td class="n">$25 · +$162 · 4%</td></tr>
+<tr><td>Skip VIX ≥ 30</td><td class="n">$23 · −$73 · 22%</td><td class="n">$26 · −$27 · 14%</td><td class="n">$27 · +$41 · 9%</td><td class="n">$28 · +$240 · 4%</td></tr>
+<tr><td>Leg C +15 (not adopted)</td><td class="n">$22 · −$86 · 22%</td><td class="n">$24 · −$85 · 19%</td><td class="n">$25 · −$143 · 17%</td><td class="n">$26 · −$85 · 14%</td></tr>
+<tr><td>Leg C +30 (not adopted)</td><td class="n">$24 · −$72 · 19%</td><td class="n">$26 · −$24 · 12%</td><td class="n">$27 · +$59 · 8%</td><td class="n">$28 · +$268 · 4%</td></tr>
+</tbody></table></div>
+<p>Every choice in the base rules keeps its ranking at all four horizons. The moving-average filter is the largest effect and is horizon-independent: without it the position earns roughly half as much per month and the 10th-percentile run is −$800 to −$1,075 at every horizon. The 8% call side beats no call side and beats the 10% call side everywhere; 7% is a near tie. Selling at VIX 30 beats waiting for 35 everywhere. Re-buying below 22 beats 20 and ties 24 everywhere. The 25/40 VIX spread beats 30/50 on return at every horizon while 30/50 keeps a slightly better tail, so that one remains a preference rather than a ranking. The salvage exit and the abandonment of the resting $4.00 limit both hold at every horizon: the limit order costs $8–12 a month of return at every length tested, and the salvage rule adds $3–4.</p>
+<p>Two findings cut the other way and are recorded so they are not forgotten. <b>The VIX-25 condition in R2 is not earning its place.</b> Loosening it to VIX 30 is equal or slightly better at every horizon (at 24 months, +$651 against +$630 with the same worst run) while tightening it to 22 is worse everywhere. The rule is kept because it costs almost nothing and it is the condition that would have mattered in 2008 and 2022 had the moving average been slower to turn — but it should be understood as a backstop to the moving average, not as a filter with independent evidence behind it. And <b>the 8% put strike</b>, priced at its live credit, earns $2–3 more a month than the 10% strike at every horizon, with more breaches and a deeper worst run at every horizon. That is a stable trade-off. Both differences sit inside the error band of a pricing model that has now been revised twice in three days, which is the reason neither is adopted here: changing live rules on that basis would be fitting to the model rather than to the market. Revisit once live fills confirm the pricing.</p>
+<p>The one genuine horizon effect is in the tail rather than the ranking. At 12 months the 10th-percentile run is −$72 and 21% of runs lose money; at 24 months those become +$27 and 9%; at 36 months, +$213 and 4%. That is the structure of the position rather than a flaw in it: the income accrues at about $26 a month while the payoff arrives in lumps a few times a decade, so a short window can easily contain the cost without the payoff. It is the quantitative case for holding the position for the full two years rather than judging it after six months.</p>
+
+<!-- ============================================================ 9 -->
+<h2 class="sec" id="s9">9. How the VIX Options Are Priced</h2>
+<p>A VIX option does not settle on spot VIX. It settles on a VIX future, and that future can sit far from spot: above it in calm markets, below it in a panic. Everything this strategy earns depends on what the 25/40 spread is worth at the moment of sale, so the future is the single most important input in the paper, and the first four revisions got it wrong in two different ways.</p>
+<h3 id="s9-1">9.1 Measuring the future instead of fitting it</h3>
+<p>Revisions 1 to 4 used a rule of thumb keyed to spot VIX. Revision 5 replaced it with Black-76 on the future, but fitted the future and the volatility skew jointly to call quotes — and that problem is not identified. A higher future with a steeper skew prices the same calls as a lower future with a flatter one, so the optimizer is free to land anywhere along that trade-off, and it settled on a future of 16.5 when spot VIX was 15.44.</p>
+<p>Put-call parity removes the model entirely. For European options on the same future, <span class="eq">C − P = e<sup>−rT</sup>(F − K)</span>, so every strike where both a call and a put are quoted yields the future directly. On the September 17 2026 close, the November 18 expiry gives 18.69, 18.66, 18.68 and 18.69 at strikes 16, 17, 18 and 20 — a spread of three cents across four strikes. The January 20 expiry gives 19.84 and 19.86. Spot VIX was 15.44, so the two-month future was 18.68 and the four-month 19.85. The curve is in steep contango, and revision 5 was understating it by more than two points.</p>
+<div class="tscroll"><table>
+<thead><tr><th>Expiry</th><th class="n">Strike</th><th class="n">Call</th><th class="n">Put</th><th class="n">Implied future</th></tr></thead>
+<tbody>
+<tr><td>Nov 18 2026 (62 days)</td><td class="n">16</td><td class="n">$3.275</td><td class="n">$0.605</td><td class="n">18.69</td></tr>
+<tr><td></td><td class="n">17</td><td class="n">$2.780</td><td class="n">$1.135</td><td class="n">18.66</td></tr>
+<tr><td></td><td class="n">18</td><td class="n">$2.425</td><td class="n">$1.750</td><td class="n">18.68</td></tr>
+<tr><td></td><td class="n">20</td><td class="n">$1.945</td><td class="n">$3.250</td><td class="n">18.69</td></tr>
+<tr><td>Jan 20 2027 (125 days)</td><td class="n">17</td><td class="n">$3.975</td><td class="n">$1.175</td><td class="n">19.84</td></tr>
+<tr><td></td><td class="n">20</td><td class="n">$2.915</td><td class="n">$3.050</td><td class="n">19.86</td></tr>
+</tbody></table></div>
+<p>With the future pinned, the skew is fitted to it rather than against it: <span class="eq">σ(K) = a + b·ln(K/F) + c·ln(K/F)²</span>, least-squares to all sixteen quoted calls and puts across both expiries. The model then reproduces every spread this paper uses to within about 2%: the four-month 25/40 at $99 against $101.50 quoted, the two-month 25/35 at $51 against $51.50, the four-month 45/55 at $21 against $21.50, and — the check revision 5 could not make, having never fitted a put — the two-month 20/17 put spread at $212 against $211.50 and the 20/16 at $264 against $264.50.</p>
+
+<h3 id="s9-2">9.2 The term structure, and the one thing still unobservable</h3>
+<p>Two measured points fix a level-space mean-reverting curve, <span class="eq">F(V,T) = θ + (V − θ)·e<sup>−κT</sup></span>, at θ = 20.5 with a half-life of 1.4 months. That reproduces today's curve at both tenors almost exactly. But a calm curve carries no information about how far the curve inverts in a panic, and extrapolating this one says the two-month future would be 27.6 when spot VIX is 40 and 42 when spot is 80. The observed values were about 30 in February 2020 and about 50 in October 2008. So the extrapolation is too aggressive at the extremes, and every headline figure in this paper uses a curve blended toward those two observed anchors. The unblended calm-fitted curve is carried through the paper as the pessimistic case.</p>
+<div class="tscroll"><table class="wide">
+<thead><tr><th class="n">Spot VIX</th><th class="n">2-mo future: rev 5</th><th class="n">2-mo: this paper</th><th class="n">2-mo: calm-fit only</th><th class="n">25/40 at sale: rev 5</th><th class="n">25/40: this paper</th><th class="n">25/40: calm-fit only</th></tr></thead>
+<tbody>
+<tr><td class="n">15.44</td><td class="n">15.9</td><td class="n">18.6</td><td class="n">18.6</td><td class="n">$70</td><td class="n">$74</td><td class="n">$74</td></tr>
+<tr><td class="n">20</td><td class="n">19.6</td><td class="n">20.8</td><td class="n">20.3</td><td class="n">$124</td><td class="n">$94</td><td class="n">$89</td></tr>
+<tr><td class="n">25</td><td class="n">23.4</td><td class="n">23.1</td><td class="n">22.1</td><td class="n">$200</td><td class="n">$122</td><td class="n">$109</td></tr>
+<tr class="tot"><td class="n">30</td><td class="n">27.0</td><td class="n">25.5</td><td class="n">24.0</td><td class="n">$294</td><td class="n">$159</td><td class="n">$134</td></tr>
+<tr><td class="n">40</td><td class="n">33.9</td><td class="n">30.2</td><td class="n">27.6</td><td class="n">$517</td><td class="n">$269</td><td class="n">$202</td></tr>
+<tr><td class="n">50</td><td class="n">40.5</td><td class="n">35.3</td><td class="n">31.3</td><td class="n">$757</td><td class="n">$461</td><td class="n">$302</td></tr>
+<tr><td class="n">60</td><td class="n">46.8</td><td class="n">40.4</td><td class="n">34.9</td><td class="n">$976</td><td class="n">$720</td><td class="n">$444</td></tr>
+<tr><td class="n">80</td><td class="n">58.8</td><td class="n">50.6</td><td class="n">42.2</td><td class="n">$1,285</td><td class="n">$1,196</td><td class="n">$816</td></tr>
+</tbody></table></div>
+<p>Read the two right-hand groups together. Revision 5 believed a spike to VIX 40 handed you $517; the measured curve says $269. It believed VIX 30 was worth $294; it is worth $159. Since the spread costs $98 to buy at VIX 15, that is the difference between a sale at five times cost and a sale at under three. This is why the average run falls from +$769 to +$630 with no rule changed at all.</p>
+<p><b>What is still uncertain.</b> The level of the curve is measured, not assumed, so it is not in doubt. What cannot be observed from a calm market is the degree of inversion in a crisis, and the two columns above bracket it: anchored to the 2008 and 2020 curves the strategy averages +$630 a run with a worst run of −$373 and 9% of runs losing; on the unblended calm-fitted extrapolation it averages +$396 with a worst run of −$510 and 15% losing. Both are positive and both preserve the rule rankings in Section 8. The first live sale will settle which is closer — compare the fill against the table above and adjust.</p>
+<p><b>A note on method.</b> This is the third pricing model in three revisions, and each correction moved the headline down: +$696 on the rule of thumb, +$769 on the call-fitted model once the exit was also rebuilt, +$630 now. That pattern is worth naming. Each model was checked against the one live quote it had been built from and passed; what caught the errors was checking against quotes the model had not seen — a second tenor, then the put side. Any future revision should be judged the same way, and the figures here should be treated as good to perhaps 15%, not to the dollar.</p>
+
+<!-- ============================================================ 10 -->
+<h2 class="sec" id="s10">10. A Short VIX Leg on the Idle Collateral: Tested, Not Adopted</h2>
+<p>The condor is switched off in about seven months of an average two-year run, and the $1,000 of collateral sits idle in exactly the months when the position is otherwise paying premium with nothing coming in. The obvious use for it is to sell volatility, since VIX is high in those months and falls back afterwards more often than not. This section records the test and the reason the idea is not in the rules.</p>
+<p>The idle months split into two populations that behave in opposite ways. Where a VIX close of 30 or more occurred within the previous three months, VIX falls over the following quarter by 5.8 points on average; that is mean reversion after a spike, and it is real. Where the condor is off only because QQQ is below its moving average, with VIX in the high teens or low twenties, VIX rises over the next quarter by 2.2 points on average and the odds of a VIX-30 close within three months are 38%, twice the unconditional rate. That is the 2008 and 2022 shape, and selling volatility into it is the classic way to lose a great deal of money. Any version of this idea has to be restricted to the post-spike population.</p>
+<p>The rule tested was: in a month that is both idle and post-spike, sell a 10-point-wide VIX call spread struck a fixed distance above spot, about two months out, one at a time, on the freed collateral, and let it settle. It trades about 30 times in 22.6 years, so the whole result rests on a handful of events.</p>
+<div class="tscroll"><table class="wide">
+<thead><tr><th>Strike above spot VIX</th><th class="n">Mean run</th><th class="n">10th pct</th><th class="n">Worst run</th><th class="n">Losing runs</th><th>Extra mean per $1 of extra worst case</th></tr></thead>
+<tbody>
+<tr class="tot"><td>(none — the adopted rule set)</td><td class="n">+$630</td><td class="n">+$27</td><td class="n">−$373</td><td class="n">9%</td><td class="sub">—</td></tr>
+<tr><td>+5 points</td><td class="n">+$621</td><td class="n">−$148</td><td class="n">−$630</td><td class="n">19%</td><td class="sub">loses on both counts</td></tr>
+<tr><td>+10 points</td><td class="n">+$625</td><td class="n">−$101</td><td class="n">−$725</td><td class="n">17%</td><td class="sub">loses on both counts</td></tr>
+<tr><td>+15 points</td><td class="n">+$604</td><td class="n">−$143</td><td class="n">−$807</td><td class="n">17%</td><td class="sub">loses on both counts</td></tr>
+<tr><td>+20 points</td><td class="n">+$608</td><td class="n">−$84</td><td class="n">−$608</td><td class="n">15%</td><td class="sub">loses on both counts</td></tr>
+<tr><td>+25 points</td><td class="n">+$641</td><td class="n">−$13</td><td class="n">−$373</td><td class="n">12%</td><td class="sub">0.03 (no extra worst case, worse tail)</td></tr>
+<tr><td>+30 points</td><td class="n">+$657</td><td class="n">+$59</td><td class="n">−$373</td><td class="n">8%</td><td class="sub">no extra worst case</td></tr>
+</tbody></table></div>
+<p>At measured prices the case is no longer close. Every offset from +5 to +20 now loses money outright relative to doing nothing, and all of them deepen the worst run and roughly double the share of losing runs. The +15 version buys nothing at all and costs $434 of worst case, turning the October 2007 window, the global financial crisis, from +$16 into −$725. In September 2008 the rule sells a 55/65 call spread for $53 with VIX at 39; the spread settles in November with VIX at 67.6 and costs the full $1,000. Nine profitable trades in the same window do not cover it. That is the structural objection in a single event: after Leg B has been sold, and while R4 blocks the re-buy, the book holds no long volatility at all, so the short spread is naked in precisely the situation the whole position exists to profit from.</p>
+<p>Only the +30 row still shows a gain, and it is worth being explicit about why it should not be trusted. Its worst run is unchanged because in November 2008 the settlement came in at 67.64 against a 70-point strike. A margin of $2.36, on the single event that decides the outcome, in a sample of thirty trades. That is not evidence of a safe strike; it is one coin landing on its edge. If this leg is ever wanted in the book, +30 is the only place to put it, sized so that a full-width loss is survivable, and with no illusion that the backtest establishes the tail.</p>
+<p>Two further variants were tested and rejected outright. Selling a 45/55 call spread against the long 25/40 — turning Leg B into a VIX condor, which needs no extra collateral — cheapens the hedge by about $100 a run but costs more than that in buy-backs when the spike arrives. And running the rule on all idle months rather than post-spike months only, the version that uses the most idle capital, is the version that sells a 35/45 spread in August 2008 and settles it with VIX at 70.</p>
+<p><b>Conclusion: the idle collateral stays idle.</b> A short volatility leg here has a positive expected value of perhaps $13 to $42 per trade across thirty trades, it trades about 1.3 times a year, and its loss distribution is decided by one or two events in the record. Against a position whose entire purpose is to be long volatility when it matters, that is not a trade worth making — and at measured prices, most versions of it are not a trade worth making at any price.</p>
+
+<!-- ============================================================ appendix -->
+<h2 class="sec" id="appendix">Appendix: Modeling Assumptions</h2>
+<div class="appendix">
+<p><b>Put-spread pricing:</b> log-linear interpolation of live Oct-16-2026 mids (8%: $0.555, 10%: $0.34, 15%: $0.13, 20%: $0.06), scaled by (VIX/15) to a power rising with distance OTM, less $0.02 fees. <b>Call-spread pricing:</b> $0.19 at VIX 15 (live 775/785 mid) scaled by (VIX/15)<sup>0.8</sup>, less $0.02; breached if the month-end close exceeds 98% of the short call strike, at 3× credit, 6× after a 10%+ up month, full width after 13%+. <b>Breach cost:</b> 3× credit ordinarily, 6× after an 8%+ down month, full width after a 12%+ down month.</p>
+<p><b>VIX-spread cost and sale value:</b> the Section 9 model, plus $1.68 fees; a sale is priced with 2.5 months of the 4-month tenor remaining, and settlement at expiry uses the actual VIX close nearest the 18th of the expiry month, since VIX options expire mid-month rather than at month end.</p>
+<p><b>Data:</b> QQQ weekly closes and lows (split-adjusted) and daily VIX closes, January 2004 to September 2026; two erroneous VIX prints (Jan 9 2023, Nov 2 2023) removed. Moving average: 10 monthly closes. Runs are 24 months to match a September 2026 to September 2028 horizon. No slippage beyond mid pricing. Return percentages use the $1,000 collateral as the base; the cash actually tied up is $1,100–1,150. Annualized returns are simple: (P&amp;L / 1,000) × 12 / months deployed, where months deployed is the month of the last cash flow (24 when the position runs to the end).</p>
+<p><b>Scenario classification (Section 7),</b> applied in order to each 24-month window of monthly closes: crash = drawdown of 18% or more from the running high with a VIX close of 30 or more (split by whether the pre-crash peak was 10%+ above the start); else choppy = two or more separate VIX-30 episodes; else one spike; else spike-free decline if drawdown 10%+ (not recovered if the window ends 10%+ below its start); else melt-up if the window ends 20%+ above its start (bursty if four or more months gained 5.8%+ from above the 10-month average with VIX under 25); else noisy flat if QQQ crossed its 10-month average three or more times; else flat.</p>
+<p><b>1993–2003:</b> Nasdaq-100 monthly closes and weekly lows scaled to QQQ; VIX proxy = 6.4 + 0.67 × trailing 8-week realized volatility (annualized, %), fitted on 2004–2026 weekly data; for those years a spike is only counted when the proxy reads 30+ during a 10%+ drawdown.</p>
+</div>
+
+<footer>QQQ volatility carry strategy, revision 6 (September 20, 2026). Live quotes Sep 17 2026; backtest on QQQ and VIX data 2004–2026. Not investment advice. <a href="QQQ_Volatility_Carry_Strategy_v6.pdf" download>Original PDF</a>.</footer>
+</article>
+</div>
+
+<script>
+// highlight the current section in the contents
+(function(){
+  const links=[...document.querySelectorAll('#toc a')];
+  const secs=links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  if(!('IntersectionObserver' in window)) return;
+  const io=new IntersectionObserver(es=>{
+    es.forEach(e=>{ if(e.isIntersecting){ links.forEach(a=>a.classList.toggle('on', a.getAttribute('href')==='#'+e.target.id)); } });
+  },{rootMargin:'0px 0px -75% 0px'});
+  secs.forEach(s=>io.observe(s));
+})();
+</script>
+</body>
+</html>
