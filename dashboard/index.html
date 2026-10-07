@@ -103,6 +103,7 @@ th{text-align:left; font-size:10.5px; letter-spacing:.06em; text-transform:upper
 td{padding:8px 12px 8px 0; border-bottom:1px solid var(--grid); vertical-align:top;}
 tr:last-child td{border-bottom:0;}
 td.num,th.num{text-align:right; padding-right:0; font-variant-numeric:tabular-nums;}
+td.num + td:not(.num), th.num + th:not(.num){padding-left:20px;}
 .empty{padding:24px 0 8px; text-align:center; color:var(--muted); font-size:13px;}
 .empty b{display:block; color:var(--ink-2); font-weight:600; margin-bottom:3px;}
 
@@ -512,15 +513,17 @@ function render(snap, storedAt){
       + `</tbody></table>`
     : `<div class="empty"><b>Nothing open</b>No legs are working. The first condor goes on when all three gates above are green.</div>`;
 
-  const tr=snap.trades||[];
+  const allTr=snap.trades||[];
+  const tr=allTr.filter(t=>t.close_date);                 // open trades live in "Open positions", not here
+  const nOpen=allTr.length-tr.length;
   const realised=tr.reduce((a,t)=>a+(+t.pnl||0),0);
   $('trWrap').innerHTML = tr.length
     ? `<table><thead><tr><th>Closed</th><th>Structure</th><th>Exit</th><th class="num">P&amp;L</th></tr></thead><tbody>`
-      + tr.map(t=>`<tr><td class="mono">${esc(t.close_date||'open')}</td><td>${esc(t.structure)}</td>
+      + tr.map(t=>`<tr><td class="mono">${esc(t.close_date)}</td><td>${esc(t.structure)}</td>
           <td class="mono">${esc(t.exit_reason||'—')}</td>
           <td class="num mono ${(+t.pnl||0)<0?'neg':'pos'}">${fmtUsd(+t.pnl||0)}</td></tr>`).join('')
       + `</tbody></table><div class="cap" style="margin:12px 0 0">Realised to date ${fmtUsd(realised)}.</div>`
-    : `<div class="empty"><b>No closed trades</b>Nothing has been traded in this account to date.</div>`;
+    : `<div class="empty"><b>No closed trades yet</b>${nOpen?`${nOpen} spread${nOpen>1?'s are':' is'} still open — ${nOpen>1?'they move':'it moves'} here with realised P&amp;L when closed.`:'Nothing has been traded in this account to date.'}</div>`;
 
   const q=snap.pending||[];
   const chipFor=st=>({awaiting_approval:'wait',approved:'acc',submitting:'acc',submitted:'acc',filled:'ok',dry_run:'ok',
@@ -528,17 +531,24 @@ function render(snap, storedAt){
   const label=st=>({awaiting_approval:'awaiting your code',approved:'approved — submits next run',submitting:'submitting',
                     submitted:'working at broker',filled:'filled',dry_run:'dry run — paper filled',rejected:'rejected',
                     expired:'expired',cancelled:'cancelled',failed:'failed',book_failed:'filled, booking failed'}[st]||st);
+  // Proposals that never reached the broker (expired unapproved, rejected, cancelled before submit) are noise once
+  // the day is over; they stay in the database and can be shown with the toggle.
+  const dead=o=>['expired','rejected','cancelled'].includes(o.status) && !o.rh_order_id && o.fill_price==null;
+  const nHidden=q.filter(dead).length;
+  const shown=window.__showAllOrders?q:q.filter(o=>!dead(o));
   const fmtT=ts=>{const t=new Date(ts);return t.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});};
-  $('queueWrap').innerHTML = q.length
+  $('queueWrap').innerHTML = (shown.length
     ? `<table style="min-width:640px"><thead><tr><th>#</th><th>Proposed</th><th>Kind</th><th>Order</th><th class="num">Limit</th><th>Status</th><th>Why</th><th class="num">Fill</th></tr></thead><tbody>`
-      + q.map(o=>`<tr><td class="mono">${esc(o.id)}</td><td class="mono">${fmtT(o.created_at)}</td>
+      + shown.map(o=>`<tr><td class="mono">${esc(o.id)}</td><td class="mono">${fmtT(o.created_at)}</td>
           <td>${esc(o.kind)} ${esc(o.leg)}</td><td>${esc(o.structure)}<br><span style="color:var(--muted);font-size:11.5px">${esc(o.direction)}</span></td>
           <td class="num mono">${fmt2(o.limit_price)}</td>
           <td><span class="chip ${chipFor(o.status)}">${esc(label(o.status))}</span>${o.error?`<div style="color:var(--crit);font-size:11.5px;margin-top:3px">${esc(o.error)}</div>`:''}</td>
           <td style="color:var(--ink-2);max-width:260px">${esc(o.reason||'')}</td>
           <td class="num mono">${o.fill_price!=null?fmt2(o.fill_price):'—'}</td></tr>`).join('')
       + `</tbody></table>`
-    : `<div class="empty"><b>Nothing proposed yet</b>The 9:40 run adds a row here whenever the rules call for a trade.</div>`;
+    : `<div class="empty"><b>No live orders</b>The 9:40 run adds a row here whenever the rules call for a trade.</div>`)
+    + (nHidden ? `<div class="cap" style="margin:12px 0 0">${window.__showAllOrders?'Showing':'Hiding'} ${nHidden} proposal${nHidden>1?'s':''} that never reached the broker (expired unapproved or rejected). <a href="#" id="toggleDead">${window.__showAllOrders?'Hide':'Show'}</a></div>` : '');
+  const tg=$('toggleDead'); if(tg) tg.onclick=e=>{e.preventDefault(); window.__showAllOrders=!window.__showAllOrders; render(snap, Date.now());};
 
   const acts=snap.activity||[];
   $('actWrap').innerHTML = acts.length ? acts.map(a=>{
