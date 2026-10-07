@@ -4,7 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <title>Volatility Carry Desk</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -166,15 +165,71 @@ nav.tabs{max-width:1120px; margin:0 auto; padding:14px 16px 0; display:flex; gap
 nav.tabs a{color:var(--ink-2); text-decoration:none; padding:6px 12px; border-radius:6px; font-weight:500;}
 nav.tabs a:hover{background:var(--surface-2); color:var(--ink);}
 nav.tabs a[aria-current="page"]{background:var(--surface); color:var(--ink); box-shadow:var(--shadow); border:1px solid var(--rule);}
+/* sign-in, account tabs, settings */
+nav.tabs .sp{flex:1}
+nav.tabs button.lnk{appearance:none;border:0;background:none;font:inherit;color:var(--ink-2);padding:6px 10px;border-radius:6px;cursor:pointer}
+nav.tabs button.lnk:hover{background:var(--surface-2);color:var(--ink)}
+nav.tabs .who{color:var(--muted);align-self:center;padding:0 4px}
+.gate-screen{max-width:400px;margin:56px auto;padding:0 16px}
+.gate-screen .card{padding:24px}
+.gate-screen h1{font-size:20px;margin:0 0 4px}
+label.f{display:block;font-size:12px;color:var(--ink-2);font-weight:500;margin:12px 0 4px}
+input.f{width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--axis);border-radius:7px;background:var(--surface);color:var(--ink)}
+input.f:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+input.f.num{width:84px;font-family:"IBM Plex Mono",monospace}
+.btn{appearance:none;font:inherit;font-size:13px;font-weight:600;padding:8px 14px;border-radius:7px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);cursor:pointer}
+.btn:hover{background:var(--surface-2)}
+.btn.pri{background:var(--accent);color:#fff;border-color:transparent}
+.btn.pri:hover{filter:brightness(1.07)}
+.btn.bad{color:var(--crit)}
+.btn.sm{font-size:12px;padding:4px 10px}
+.btn:disabled{opacity:.5;cursor:default}
+.msg{font-size:12.5px;margin-top:10px;min-height:1em}
+.msg.err{color:var(--crit)} .msg.ok{color:var(--good)}
+.setgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px}
+.setgrid h3{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 6px;font-weight:600}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.kv{font-size:13px;color:var(--ink-2);margin:4px 0}
+.kv b{color:var(--ink);font-weight:600}
 @media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
 </style>
 </head>
 <body>
-<nav class="tabs" aria-label="Site">
-  <a href="./" aria-current="page">Dashboard</a>
+<nav class="tabs" aria-label="Site" id="nav">
+  <span id="acctTabs" style="display:flex;gap:4px"></span>
   <a href="../strategy/">Strategy paper</a>
+  <span class="sp"></span>
+  <span class="who" id="who"></span>
+  <button type="button" class="lnk" id="signOut" hidden>Sign out</button>
 </nav>
-<div class="wrap">
+
+<div class="gate-screen" id="signin" hidden>
+  <div class="card">
+    <h1>Volatility Carry Desk</h1>
+    <p class="cap" id="siCap">Sign in to see your account.</p>
+    <form id="siForm" autocomplete="on">
+      <label class="f" for="siUser">Name</label>
+      <input class="f" id="siUser" name="username" autocomplete="username" autocapitalize="none" required>
+      <div id="siCodeRow" hidden>
+        <label class="f" for="siCode">Invite code</label>
+        <input class="f mono" id="siCode" autocomplete="one-time-code" autocapitalize="characters">
+      </div>
+      <label class="f" for="siPass" id="siPassL">Passphrase</label>
+      <input class="f" id="siPass" type="password" name="password" autocomplete="current-password" required>
+      <div id="siPass2Row" hidden>
+        <label class="f" for="siPass2">Repeat passphrase</label>
+        <input class="f" id="siPass2" type="password" autocomplete="new-password">
+      </div>
+      <div class="row" style="margin-top:16px;justify-content:space-between">
+        <button class="btn pri" type="submit" id="siBtn">Sign in</button>
+        <a href="#" id="siMode" style="font-size:12.5px">First time? Use your invite code</a>
+      </div>
+      <div class="msg" id="siMsg" role="status"></div>
+    </form>
+  </div>
+</div>
+
+<div class="wrap" id="main" hidden>
 
   <header class="top">
     <h1>QQQ Volatility Carry</h1>
@@ -207,7 +262,7 @@ nav.tabs a[aria-current="page"]{background:var(--surface); color:var(--ink); box
       </div>
       <div class="gate">
         <div class="gate-h"><span class="mark" id="g3m">·</span> Funding</div>
-        <div class="gate-v"><span class="mono" id="g3v">—</span><span class="vs">of $1,000 collateral</span></div>
+        <div class="gate-v"><span class="mono" id="g3v">—</span><span class="vs" id="g3vs">of $1,000 collateral</span></div>
         <div class="meter"><i id="g3bar" style="width:0"></i><span class="thr" style="left:100%"></span></div>
         <div class="gate-n" id="g3n">—</div>
       </div>
@@ -218,7 +273,7 @@ nav.tabs a[aria-current="page"]{background:var(--surface); color:var(--ink); box
 
     <section class="card span5">
       <h2>Account</h2>
-      <p class="cap">Robinhood ••••6066 — the “Agentic” account this strategy runs in.</p>
+      <p class="cap" id="acctCap">Robinhood account this strategy runs in.</p>
       <div class="big mono" id="acctVal">—</div>
       <div class="cap" style="margin:6px 0 0" id="acctNote">Awaiting the live read.</div>
       <div class="seg" role="tablist" aria-label="Account chart mode" style="margin-top:14px">
@@ -239,9 +294,15 @@ nav.tabs a[aria-current="page"]{background:var(--surface); color:var(--ink); box
       <figure id="maWrap"></figure>
     </section>
 
+    <section class="card span12" id="setCard">
+      <h2>Account settings</h2>
+      <p class="cap" id="setCap"></p>
+      <div class="setgrid" id="setWrap"></div>
+    </section>
+
     <section class="card span12" id="queueCard">
       <h2>Order queue</h2>
-      <p class="cap">Every order the bot has proposed. Entries wait for Morris's one-time code (sent by email); exits are auto-approved. Approved orders are submitted at the next execution run (10:45, 13:45, 15:45 ET) only if the filters and price still hold.</p>
+      <p class="cap">Every order the bot has proposed. Entries wait for the account owner's approval (email link or the buttons here); exits are auto-approved. Approved orders are submitted at the next execution run (10:45, 13:45, 15:45 ET) only if the filters and price still hold.</p>
       <div class="tscroll"><div id="queueWrap"><div class="empty">Loading…</div></div></div>
     </section>
 
@@ -278,7 +339,7 @@ nav.tabs a[aria-current="page"]{background:var(--surface); color:var(--ink); box
 
   </div>
 
-  <footer>Entries are placed only after Morris approves them with a one-time code; exits (R3, R5) execute on their own and are logged here. Live rows are read directly from the Supabase log with a read-only key; nothing on this page can place, change or approve an order — approvals happen only through the one-time links in the email.</footer>
+  <footer>Entries are placed only after the account owner approves them; exits (R3, R5) execute on their own and are logged here. Each person signs in with their own passphrase and sees only the accounts they were given. Robinhood credentials typed here are encrypted in your browser with the bot's public key before they leave this page; the server stores only the sealed box, and only the bot can open it.</footer>
 </div>
 <div class="tip" id="tip" role="tooltip" aria-hidden="true"></div>
 
@@ -505,7 +566,12 @@ function liveUnavailable(msg){
 
 function render(snap, storedAt){
   const S=snap.strategy||{}, days=snap.days||[], d=days[days.length-1]||{};
-  const collateral = +S.collateral || 1000;
+  const A=snap.account||{}, V=snap.viewer||{};
+  const contracts = +A.contracts || 1;
+  const collateral = (+S.collateral || 1000) * contracts;
+  $('g3vs').textContent = `of ${fmtUsd(collateral)} collateral (${contracts} contract${contracts>1?'s':''})`;
+  $('acctCap').textContent = `${A.display_name||''}'s Robinhood account${A.rh_account_number?' '+(String(A.rh_account_number).startsWith('••')?A.rh_account_number:'••••'+String(A.rh_account_number).slice(-4)):' (account number not set yet)'}.`;
+  renderSettings(snap);
 
   const sp=$('statusPill');
   sp.textContent=(S.status||'planned').replace('_',' ').toUpperCase();
@@ -577,7 +643,7 @@ function render(snap, storedAt){
   const q=snap.pending||[];
   const chipFor=st=>({awaiting_approval:'wait',approved:'acc',submitting:'acc',submitted:'acc',filled:'ok',dry_run:'ok',
                       rejected:'bad',expired:'',cancelled:'',failed:'bad',book_failed:'bad'}[st]||'');
-  const label=st=>({awaiting_approval:'awaiting your code',approved:'approved — submits next run',submitting:'submitting',
+  const label=st=>({awaiting_approval:'awaiting approval',approved:'approved — submits next run',submitting:'submitting',
                     submitted:'working at broker',filled:'filled',dry_run:'dry run — paper filled',rejected:'rejected',
                     expired:'expired',cancelled:'cancelled',failed:'failed',book_failed:'filled, booking failed'}[st]||st);
   // Proposals that never reached the broker (expired unapproved, rejected, cancelled before submit) are noise once
@@ -587,17 +653,25 @@ function render(snap, storedAt){
   const shown=window.__showAllOrders?q:q.filter(o=>!dead(o));
   const fmtT=ts=>{const t=new Date(ts);return t.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});};
   $('queueWrap').innerHTML = (shown.length
-    ? `<table style="min-width:640px"><thead><tr><th>#</th><th>Proposed</th><th>Kind</th><th>Order</th><th class="num">Limit</th><th>Status</th><th>Why</th><th class="num">Fill</th></tr></thead><tbody>`
+    ? `<table style="min-width:640px"><thead><tr><th>#</th><th>Proposed</th><th>Kind</th><th>Order</th><th class="num">Limit</th><th>Status</th><th>Why</th><th class="num">Fill</th>${V.owner?'<th></th>':''}</tr></thead><tbody>`
       + shown.map(o=>`<tr><td class="mono">${esc(o.id)}</td><td class="mono">${fmtT(o.created_at)}</td>
           <td>${esc(o.kind)} ${esc(o.leg)}</td><td>${esc(o.structure)}<br><span style="color:var(--muted);font-size:11.5px">${esc(o.direction)}</span></td>
           <td class="num mono">${fmt2(o.limit_price)}</td>
           <td><span class="chip ${chipFor(o.status)}">${esc(label(o.status))}</span>${o.error?`<div style="color:var(--crit);font-size:11.5px;margin-top:3px">${esc(o.error)}</div>`:''}</td>
           <td style="color:var(--ink-2);max-width:260px">${esc(o.reason||'')}</td>
-          <td class="num mono">${o.fill_price!=null?fmt2(o.fill_price):'—'}</td></tr>`).join('')
+          <td class="num mono">${o.fill_price!=null?fmt2(o.fill_price):'—'}</td>${V.owner?`<td style="white-space:nowrap">${o.status==='awaiting_approval'?`<button class="btn pri sm" data-ord="${esc(o.id)}" data-act="approve">Approve</button> <button class="btn bad sm" data-ord="${esc(o.id)}" data-act="reject">Reject</button>`:''}</td>`:''}</tr>`).join('')
       + `</tbody></table>`
     : `<div class="empty"><b>No live orders</b>The 9:40 run adds a row here whenever the rules call for a trade.</div>`)
     + (nHidden ? `<div class="cap" style="margin:12px 0 0">${window.__showAllOrders?'Showing':'Hiding'} ${nHidden} proposal${nHidden>1?'s':''} that never reached the broker (expired unapproved or rejected). <a href="#" id="toggleDead">${window.__showAllOrders?'Hide':'Show'}</a></div>` : '');
-  const tg=$('toggleDead'); if(tg) tg.onclick=e=>{e.preventDefault(); window.__showAllOrders=!window.__showAllOrders; render(snap, Date.now());};
+  document.querySelectorAll('#queueWrap button[data-ord]').forEach(b=>b.onclick=async()=>{
+    const act=b.dataset.act, id=b.dataset.ord;
+    if(!confirmInline(b, act==='approve'?'Confirm approve':'Confirm reject')) return;
+    b.disabled=true;
+    try{ const r=await api('order',{id:+id, action:act}); toast(r.ok?`Order #${id} ${r.result}.`:`Order #${id}: ${r.result}`, r.ok); }
+    catch(e){ toast(e.message,false); }
+    refresh();
+  });
+  const tg=$('toggleDead'); if(tg) tg.onclick=e=>{e.preventDefault(); window.__showAllOrders=!window.__showAllOrders; render(LAST||snap, Date.now());};
 
   const acts=snap.activity||[];
   $('actWrap').innerHTML = acts.length ? acts.map(a=>{
@@ -606,30 +680,236 @@ function render(snap, storedAt){
   }).join('') : `<li><span style="color:var(--muted)">Nothing logged yet.</span></li>`;
 }
 
-const SB_URL = "https://bqsbxaptzauxfjxptgfo.supabase.co";
-const SB_KEY = "sb_publishable_ZI-vSFWXfIUa8Psyjkz6tw_-iBMOcsJ";   // publishable key: read-only; the database grants anon SELECT and nothing else
-const sb = supabase.createClient(SB_URL, SB_KEY);
+/* ---------------- signed-in API (Supabase edge function "dash") ---------------- */
+const API = "https://bqsbxaptzauxfjxptgfo.supabase.co/functions/v1/dash";
+// The bot's PUBLIC key. Credentials are sealed to it in this browser; only the bot holds the private key.
+const BOT_PUBKEY = "eynYHUmPELwTsqu57C7fIFd6y0pExstvqADdkxt56Wc=";
+const store = {
+  get(k){ try{ return localStorage.getItem(k); }catch{ return null; } },
+  set(k,v){ try{ v==null?localStorage.removeItem(k):localStorage.setItem(k,v); }catch{} },
+};
+let SESSION = null;           // {token, user, accounts, admin}
+try{ SESSION = JSON.parse(store.get('vc_session')||'null'); }catch{ SESSION=null; }
+let CUR = null;               // account id on screen
+let LAST = null;              // last snapshot
 
-async function loadSnap(){
-  const [st, days, pos, tr, act, pend, flows] = await Promise.all([
-    sb.from('strategy').select('*').eq('id','qqq-vol-carry-v6').limit(1),
-    sb.from('daily_state').select('*').order('d'),
-    sb.from('positions').select('*').eq('status','open').order('expiry'),
-    sb.from('trades').select('*').order('close_date',{ascending:false, nullsFirst:true}),
-    sb.from('activity').select('*').order('ts',{ascending:false}).limit(8),
-    sb.from('pending_orders').select('id,created_at,trade_date,kind,leg,structure,direction,limit_price,status,expires_at,approved_at,rh_order_id,fill_price,error,rationale').order('id',{ascending:false}).limit(20),
-    sb.from('cash_flows').select('d,amount,kind,note').order('d'),
-  ]);
-  const bad=[st,days,pos,tr,act,pend].find(r=>r.error);
-  if(bad) throw new Error(bad.error.message);
-  return {strategy:(st.data||[])[0]||{}, days:days.data||[], positions:pos.data||[], trades:tr.data||[], activity:act.data||[],
-          pending:(pend.data||[]).map(o=>({...o, reason:(o.rationale||{}).reason})), flows:flows.data||[]};
+async function api(op, body={}){
+  const r = await fetch(API, {method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({op, token: SESSION && SESSION.token, account: CUR, ...body})});
+  let j = {}; try{ j = await r.json(); }catch{}
+  if(r.status===401 && op!=='login' && op!=='redeem'){ signOut('Your session ended — sign in again.'); throw new Error('signed out'); }
+  if(!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
 }
+function toast(msg, ok){ setConn(ok?'✓':'!', ok?'--good':'--warn', esc(msg)); clearTimeout(toast.t); toast.t=setTimeout(()=>{$('conn').hidden=true;}, 6000); }
+function confirmInline(btn, label){
+  if(btn.dataset.armed){ delete btn.dataset.armed; btn.textContent=btn.dataset.orig; return true; }
+  btn.dataset.orig=btn.textContent; btn.dataset.armed='1'; btn.textContent=label;
+  setTimeout(()=>{ if(btn.dataset.armed){ delete btn.dataset.armed; btn.textContent=btn.dataset.orig; } }, 4000);
+  return false;
+}
+
+/* ---------------- sign-in ---------------- */
+let redeemMode = false;
+function setRedeem(on){
+  redeemMode = on;
+  $('siCodeRow').hidden = !on; $('siPass2Row').hidden = !on;
+  $('siCode').required = on; $('siPass2').required = on;
+  $('siPassL').textContent = on ? 'Choose a passphrase (10+ characters)' : 'Passphrase';
+  $('siPass').autocomplete = on ? 'new-password' : 'current-password';
+  $('siBtn').textContent = on ? 'Set passphrase' : 'Sign in';
+  $('siMode').textContent = on ? 'Already set up? Sign in' : 'First time? Use your invite code';
+  $('siCap').textContent = on ? 'Enter the invite code you were given and choose your own passphrase. The code works once.' : 'Sign in to see your account.';
+  $('siMsg').textContent = '';
+}
+$('siMode').onclick = e => { e.preventDefault(); setRedeem(!redeemMode); };
+$('siForm').onsubmit = async e => {
+  e.preventDefault();
+  const m = $('siMsg'); m.className='msg'; m.textContent='';
+  const user = $('siUser').value.trim().toLowerCase(), pass = $('siPass').value;
+  if(redeemMode && pass !== $('siPass2').value){ m.className='msg err'; m.textContent='The passphrases do not match.'; return; }
+  $('siBtn').disabled = true;
+  try{
+    const j = redeemMode ? await api('redeem', {user, pass, code: $('siCode').value.trim()}) : await api('login', {user, pass});
+    SESSION = {token:j.token, user:j.user, accounts:j.accounts, admin:j.admin};
+    store.set('vc_session', JSON.stringify(SESSION));
+    $('siPass').value=''; $('siPass2').value=''; $('siCode').value='';
+    start();
+  }catch(err){ m.className='msg err'; m.textContent = err.message; }
+  finally{ $('siBtn').disabled = false; }
+};
+function signOut(msg){
+  SESSION = null; store.set('vc_session', null); LAST = null;
+  $('main').hidden = true; $('signin').hidden = false; $('signOut').hidden = true; $('who').textContent = '';
+  $('acctTabs').innerHTML = '';
+  setRedeem(false);
+  if(msg){ $('siMsg').className='msg err'; $('siMsg').textContent = msg; }
+}
+$('signOut').onclick = () => signOut();
+
+const NAMES = {morris:'Morris', oody:'Oody'};
+function tabs(){
+  const accts = SESSION.accounts || [];
+  $('acctTabs').innerHTML = accts.map(a => `<a href="#${esc(a)}" data-acct="${esc(a)}"${a===CUR?' aria-current="page"':''}>${esc(NAMES[a]||a)}</a>`).join('');
+}
+function pickAccount(){
+  const accts = SESSION.accounts || [];
+  const h = location.hash.slice(1);
+  CUR = accts.includes(h) ? h : (accts.includes(SESSION.user) ? SESSION.user : accts[0]);
+}
+window.addEventListener('hashchange', () => { if(!SESSION) return; const prev=CUR; pickAccount(); if(CUR!==prev){ LAST=null; tabs(); refresh(); } });
+
+function start(){
+  if(!SESSION || !SESSION.token){ signOut(); return; }
+  $('signin').hidden = true; $('main').hidden = false; $('signOut').hidden = false;
+  $('who').textContent = `Signed in as ${NAMES[SESSION.user]||SESSION.user}`;
+  pickAccount(); tabs(); refresh();
+}
+
+/* ---------------- account settings card ---------------- */
+let sodiumP = null;
+function loadSodium(){
+  if(!sodiumP) sodiumP = new Promise((res, rej) => {
+    const add = src => new Promise((ok, bad) => { const s=document.createElement('script'); s.src=src; s.onload=ok; s.onerror=()=>bad(new Error('could not load the encryption library')); document.head.appendChild(s); });
+    add('vendor/libsodium.js').then(()=>add('vendor/libsodium-wrappers.js')).then(()=>window.sodium.ready).then(()=>res(window.sodium)).catch(rej);
+  });
+  return sodiumP;
+}
+async function sealCreds(u, p){
+  const so = await loadSodium();
+  const pk = so.from_base64(BOT_PUBKEY, so.base64_variants.ORIGINAL);
+  const box = so.crypto_box_seal(so.from_string(JSON.stringify({u, p})), pk);
+  return so.to_base64(box, so.base64_variants.ORIGINAL);
+}
+const when = ts => ts ? new Date(ts).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : null;
+
+function renderSettings(snap){
+  const A = snap.account||{}, V = snap.viewer||{}, S = snap.strategy||{};
+  const own = !!V.owner, canEdit = own || V.admin;
+  const who = A.display_name || CUR;
+  $('setCap').textContent = own
+    ? 'Your settings. Changes apply from the next bot run; open positions keep the size they were opened at.'
+    : `${who}'s account. As an admin you can change the size, pause the bot or halt trading; only ${who} can approve trades or change the Robinhood login.`;
+  const status = S.status || 'dry_run';
+  const credLine = A.creds_source === 'env'
+    ? 'Login stored as a GitHub Actions secret.'
+    : (A.creds_saved_at ? `Encrypted login saved ${when(A.creds_saved_at)}.` : '<b style="color:var(--crit)">No login saved yet.</b>');
+  const sess = A.session_saved_at ? `Robinhood session saved ${when(A.session_saved_at)}${A.session_expires?` · expires ${when(A.session_expires)}`:''}.` : 'No Robinhood session yet — use Connect.';
+
+  $('setWrap').innerHTML = `
+    <div>
+      <h3>Position size</h3>
+      <div class="row"><input class="f num" id="sContracts" type="number" min="1" max="10" step="1" value="${esc(A.contracts||1)}" ${canEdit?'':'disabled'} aria-label="Contracts per trade">
+        <span class="kv">contract${(A.contracts||1)>1?'s':''} per trade</span>
+        ${canEdit?'<button class="btn sm" id="sContractsSave">Save</button>':''}</div>
+      <p class="cap" style="margin-top:8px">Each contract is one condor ($1,000 collateral on one side) plus one VIX call spread. 1–10.</p>
+      <div class="msg" id="sContractsMsg"></div>
+    </div>
+    <div>
+      <h3>Trading</h3>
+      <div class="kv">Status <span class="pill mono ${esc(status)}">${esc(status.replace('_',' ').toUpperCase())}</span>${S.halt_reason&&status==='halted'?` <span style="color:var(--muted)">— ${esc(S.halt_reason)}</span>`:''}</div>
+      <div class="row" style="margin-top:8px">
+        ${own?`<button class="btn sm" data-status="live" ${status==='live'?'disabled':''}>Go live</button>
+               <button class="btn sm" data-status="dry_run" ${status==='dry_run'?'disabled':''}>Dry run</button>`:''}
+        ${canEdit?`<button class="btn bad sm" data-status="halted" ${status==='halted'?'disabled':''}>Halt</button>`:''}
+      </div>
+      <label class="kv" style="display:flex;gap:8px;align-items:center;margin-top:10px">
+        <input type="checkbox" id="sEnabled" ${A.enabled?'checked':''} ${canEdit?'':'disabled'}> Bot runs this account on schedule</label>
+      <p class="cap" style="margin-top:6px">Dry run proposes and paper-books without sending orders. Halt stops everything and rejects anything queued.</p>
+      <div class="msg" id="sStatusMsg"></div>
+    </div>
+    <div>
+      <h3>Robinhood</h3>
+      <div class="kv">Account number <b class="mono">${esc(A.rh_account_number||'not set')}</b></div>
+      <div class="kv">${credLine}</div>
+      <div class="kv">${sess}</div>
+      ${own && A.creds_source!=='env' ? `
+      <details style="margin-top:8px"${A.creds_saved_at&&A.rh_account_number?'':' open'}>
+        <summary style="cursor:pointer;font-size:13px;font-weight:600">${A.creds_saved_at?'Update login':'Save login'}</summary>
+        <form id="credForm" autocomplete="off">
+          <label class="f" for="cNum">Account number</label>
+          <input class="f mono" id="cNum" value="${esc(A.rh_account_number||'')}" placeholder="from Robinhood → Account → Investing">
+          <label class="f" for="cUser">Robinhood email / username</label>
+          <input class="f" id="cUser" autocomplete="off" autocapitalize="none">
+          <label class="f" for="cPass">Robinhood password</label>
+          <input class="f" id="cPass" type="password" autocomplete="new-password">
+          <p class="cap" style="margin-top:8px">Encrypted in this browser with the bot's public key before it is sent. The server stores only the sealed box; nobody, including the site owner, can read it back.</p>
+          <button class="btn pri sm" type="submit">Encrypt &amp; save</button>
+        </form>
+      </details>` : ''}
+      ${canEdit?`<div class="row" style="margin-top:10px"><button class="btn sm" id="sConnect">Connect Robinhood</button></div>
+      <p class="cap" style="margin-top:6px">Starts a login run. Within about two minutes Robinhood sends a push to ${own?'your':who+"'s"} phone — approve it there.</p>`:''}
+      <div class="msg" id="sCredMsg"></div>
+    </div>
+    <div>
+      <h3>Notifications</h3>
+      ${own?`<label class="f" for="sEmail" style="margin-top:0">Email for approvals and alerts</label>
+      <div class="row"><input class="f" id="sEmail" type="email" value="${esc(A.notify_email||'')}" style="flex:1;min-width:160px"><button class="btn sm" id="sEmailSave">Save</button></div>`
+      :`<div class="kv">Email ${A.notify_email?'set':'not set'}</div>`}
+      <p class="cap" style="margin-top:8px">New entries also show up in the order queue below with Approve / Reject buttons${own?'':` for ${who}`}.</p>
+      <div class="msg" id="sEmailMsg"></div>
+    </div>`;
+
+  const msg = (id, t, ok) => { const m=$(id); m.className='msg '+(ok?'ok':'err'); m.textContent=t; };
+  const on = (id, fn) => { const el=$(id); if(el) el.onclick=fn; };
+  on('sContractsSave', async () => {
+    const n = +$('sContracts').value;
+    if(!Number.isInteger(n) || n<1 || n>10) return msg('sContractsMsg','Enter a whole number from 1 to 10.',false);
+    try{ await api('settings',{contracts:n}); msg('sContractsMsg',`Saved — ${n} contract${n>1?'s':''} from the next entry.`,true); refresh(); }
+    catch(e){ msg('sContractsMsg',e.message,false); }
+  });
+  on('sEmailSave', async () => {
+    try{ await api('settings',{notify_email:$('sEmail').value.trim()}); msg('sEmailMsg','Saved.',true); }
+    catch(e){ msg('sEmailMsg',e.message,false); }
+  });
+  const en=$('sEnabled'); if(en && !en.disabled) en.onchange = async () => {
+    try{ await api('settings',{enabled:en.checked}); msg('sStatusMsg', en.checked?'The bot will run this account on schedule.':'Paused — scheduled runs skip this account.', true); }
+    catch(e){ en.checked=!en.checked; msg('sStatusMsg',e.message,false); }
+  };
+  document.querySelectorAll('#setWrap button[data-status]').forEach(b => b.onclick = async () => {
+    const st=b.dataset.status;
+    if(!confirmInline(b, st==='live'?'Confirm: real orders':st==='halted'?'Confirm halt':'Confirm dry run')) return;
+    try{ await api('status',{status:st}); msg('sStatusMsg',`Status set to ${st.replace('_',' ')}.`,true); refresh(); }
+    catch(e){ msg('sStatusMsg',e.message,false); }
+  });
+  on('sConnect', async () => {
+    const b=$('sConnect'); b.disabled=true;
+    try{ const r=await api('connect'); msg('sCredMsg', r.ok?'Login run started — watch for the Robinhood push on the phone in the next 1–2 minutes.':`Not started: ${r.result}`, r.ok); }
+    catch(e){ msg('sCredMsg',e.message,false); }
+    finally{ setTimeout(()=>{ if($('sConnect')) $('sConnect').disabled=false; }, 30000); }
+  });
+  const cf=$('credForm'); if(cf) cf.onsubmit = async e => {
+    e.preventDefault();
+    const num=$('cNum').value.trim(), u=$('cUser').value.trim(), p=$('cPass').value;
+    try{
+      if(num && num!==(A.rh_account_number||'')) await api('settings',{rh_account_number:num});
+      if(u || p){
+        if(!u || !p) throw new Error('Enter both the username and the password.');
+        const sealed = await sealCreds(u, p);
+        $('cPass').value=''; $('cUser').value='';
+        await api('credentials',{sealed});
+      }
+      msg('sCredMsg', u ? 'Saved (encrypted). Next: Connect Robinhood.' : 'Saved.', true); refresh();
+    }catch(err){ msg('sCredMsg', err.message, false); }
+  };
+}
+
+/* ---------------- load ---------------- */
 async function refresh(){
-  try{ const snap=await loadSnap(); $('conn').hidden=true; render(snap, Date.now()); }
-  catch(e){ setConn('!','--warn',`<b>Live read failed.</b> ${esc(e.message)}`); liveUnavailable('The live read did not complete.'); }
+  if(!SESSION || !CUR) return;
+  try{
+    const snap = await api('snapshot');
+    LAST = snap; $('conn').hidden = true;
+    // keep a half-typed form intact across the 2-minute refresh
+    const typing = document.activeElement && $('setWrap').contains(document.activeElement);
+    if(typing){ const keep=renderSettings; renderSettings=()=>{}; try{ render(snap, Date.now()); } finally{ renderSettings=keep; } }
+    else render(snap, Date.now());
+  }catch(e){
+    if(e.message==='signed out') return;
+    setConn('!','--warn',`<b>Live read failed.</b> ${esc(e.message)}`); liveUnavailable('The live read did not complete.');
+  }
 }
-refresh();
+if(SESSION && SESSION.token) start(); else signOut();
 setInterval(refresh, 120000);
 </script>
 </body>
